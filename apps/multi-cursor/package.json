@@ -1,0 +1,19 @@
+{
+    "name": "multi_cursor",
+    "description": "A simple multiplayer cursor and drawing app",
+    "version": "1.0.0",
+    "author": "Sivarjuen Ravichandran",
+    "license": "MIT",
+    "scripts": {
+        "dev": "vite --config vite/config.dev.mjs",
+        "build": "vite build --config vite/config.prod.mjs"
+    },
+    "devDependencies": {
+        "typescript": "~5.7.2",
+        "vite": "^6.3.1"
+    },
+    "dependencies": {
+        "phaser": "^3.90.0",
+        "terser": "^5.39.0"
+    }
+}
