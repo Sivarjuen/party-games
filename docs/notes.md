@@ -535,3 +535,15 @@ Use Phaser Minimal + TypeScript + Vite in apps/card-game.
 Use shared workspace packages for protocol, networking, and presence systems.
 
 First deliverable is a two-player real-time shared cursor test proving lobby joins and host-authoritative updates through the external relay server.
+
+---
+
+## Processed Notes
+
+Processed on: 2026-04-26
+
+Summary:
+- Updated `project-design.md` with project overview, separation of concerns, host-authoritative model, design pillars, milestone build order, first deliverable description, and future features
+- Updated `tech.md` with TypeScript, Phaser, Vite, pnpm workspaces, relay integration approach, cursor networking protocol, coordinate standard, and platform assumptions
+- Updated `structure.md` with full repo layout, folder responsibilities, shared package descriptions, package naming convention, git rules, and Phaser scaffolding rule
+- Updated `ai-agent-rules.md` with coding style, architecture rules, implementation preferences, Phaser specifics, monorepo rules, and anti-patterns
