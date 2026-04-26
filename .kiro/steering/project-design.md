@@ -49,7 +49,7 @@ This keeps the server generic, enables rapid new game development, supports many
 
 ### First Deliverable — Multiplayer Shared Cursor Test
 
-Two players join a lobby and see each other's cursor positions in real time. Built in `apps/card-game` (not a real card game yet — purely a networking validation app).
+Two players join a lobby and see each other's cursor positions in real time. Built in `apps/multi-cursor`
 
 Lobby flow:
 1. Player A creates or joins lobby
