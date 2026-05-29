@@ -12,7 +12,7 @@ export class HudUI {
   private directionTween: Phaser.Tweens.Tween | null = null;
   private currentDirection: 1 | -1 = 1;
 
-  private drawStackBg: Phaser.GameObjects.Rectangle;
+  private drawStackBg: Phaser.GameObjects.Arc;
   private drawStackText: Phaser.GameObjects.Text;
   private unoCallText: Phaser.GameObjects.Text;
   private unoCallTween: Phaser.Tweens.Tween | null = null;
@@ -31,12 +31,12 @@ export class HudUI {
 
     this._startSpin(1);
 
-    this.drawStackBg = scene.add.rectangle(0, 0, 160, 50, 0xcc0000).setVisible(false);
+    this.drawStackBg = scene.add.circle(0, 0, 28, 0xffffff).setVisible(false);
     this.drawStackText = scene.add
       .text(0, 0, '', {
         fontFamily: 'Consolas, monospace',
-        fontSize: '26px',
-        color: '#ffffff',
+        fontSize: '22px',
+        color: '#000000',
         fontStyle: 'bold',
       })
       .setOrigin(0.5, 0.5)
@@ -83,12 +83,11 @@ export class HudUI {
     // Direction icon — bottom left
     this.directionIcon.setPosition(44, H - 44);
 
-    // Draw stack counter — to the right of the discard pile
-    const { discardPile } = getCentralAreaPositions(W, H);
+    // Draw stack counter — on top of the draw pile
+    const { drawPile, discardPile } = getCentralAreaPositions(W, H);
     const playerCardH = H * 0.30;
-    const stackX = discardPile.x + playerCardH * (2 / 3) / 2 + 160;
-    this.drawStackBg.setPosition(stackX, discardPile.y);
-    this.drawStackText.setPosition(stackX, discardPile.y);
+    this.drawStackBg.setPosition(drawPile.x, drawPile.y);
+    this.drawStackText.setPosition(drawPile.x, drawPile.y);
     // unoCallText position is set dynamically in showUnoCall based on draw stack visibility
 
     const topSlots = this.slots.filter((s) => s.position.startsWith('top'));
@@ -116,12 +115,20 @@ export class HudUI {
       } else if (slot.position.startsWith('top')) {
         labelY = H * 0.14;
       } else if (slot.position === 'left') {
-        labelX = bounds.x + bounds.width;
-        labelY = bounds.y + bounds.height / 2;
+        // Position label to the right of the cards (toward center)
+        const oppH = H * 0.15;
+        const oppSidePeek = oppH * 0.20;
+        const cardX = oppH / 2 - oppSidePeek; // where card centers are
+        labelX = cardX + oppH * 0.7 + 20; // clear of the card width
+        labelY = H / 2;
         labelRotation = Math.PI / 2;
       } else {
-        labelX = bounds.x;
-        labelY = bounds.y + bounds.height / 2;
+        // Right side — label to the left of the cards (toward center)
+        const oppH = H * 0.15;
+        const oppSidePeek = oppH * 0.20;
+        const cardX = W - oppH / 2 + oppSidePeek;
+        labelX = cardX - oppH * 0.7 - 20;
+        labelY = H / 2;
         labelRotation = -Math.PI / 2;
       }
       label.setPosition(labelX, labelY);
@@ -132,7 +139,10 @@ export class HudUI {
   update(state: UnoGameState, _slots: SlotConfig[]): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
-    this.reposition(W, H);
+    // Don't reposition if below minimum height
+    if (H >= 600) {
+      this.reposition(W, H);
+    }
 
     // Update direction spin if changed
     if (state.direction !== this.currentDirection) {
@@ -143,7 +153,7 @@ export class HudUI {
     // Draw stack counter
     if (state.activeDrawStack > 0) {
       this.drawStackBg.setVisible(true);
-      this.drawStackText.setText(`Draw +${state.activeDrawStack}`).setVisible(true);
+      this.drawStackText.setText(`+${state.activeDrawStack}`).setVisible(true);
     } else {
       this.drawStackBg.setVisible(false);
       this.drawStackText.setVisible(false);
@@ -206,11 +216,9 @@ export class HudUI {
     // Position: same spot as draw stack, but shift up if draw stack is visible
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
-    const { discardPile } = getCentralAreaPositions(W, H);
-    const playerCardH = H * 0.30;
-    const stackX = discardPile.x + playerCardH * (2 / 3) / 2 + 160;
+    const { drawPile: dp } = getCentralAreaPositions(W, H);
     const offsetY = this.drawStackBg.visible ? -60 : 0;
-    this.unoCallText.setPosition(stackX, discardPile.y + offsetY);
+    this.unoCallText.setPosition(dp.x, dp.y + offsetY);
 
     this.unoCallText.setVisible(true).setAlpha(1).setScale(0.5);
     this.unoCallTween = this.scene.tweens.add({

@@ -144,8 +144,11 @@ export function getCentralAreaPositions(
   canvasHeight: number,
 ): { drawPile: { x: number; y: number }; discardPile: { x: number; y: number } } {
   const cx = canvasWidth / 2;
-  const cy = canvasHeight * 0.5;  // shifted up from center
-  const gap = 260; // half-gap between draw and discard centres
+  const cy = canvasHeight * 0.5;
+  // Discard pile centered, draw pile to its left
+  // Gap = full card width so edges don't touch
+  const cardW = canvasHeight * 0.30 * (670 / 1043);
+  const gap = cardW + 40;
   return {
     drawPile:    { x: cx - gap, y: cy },
     discardPile: { x: cx,       y: cy },

@@ -5,7 +5,7 @@ import { UnoGameScene } from './scenes/UnoGameScene';
 const config: Types.Core.GameConfig = {
   type: AUTO,
   parent: 'game-container',
-  backgroundColor: '#1a472a',
+  backgroundColor: '#000000',
   scale: {
     mode: Scale.RESIZE,
     autoCenter: Scale.CENTER_BOTH,

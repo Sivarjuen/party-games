@@ -11,6 +11,9 @@ import { ColorPickerUI } from '../ui/ColorPickerUI';
 import { WinOverlayUI } from '../ui/WinOverlayUI';
 import type { UnoGameState, UnoPlayer } from '../state/UnoGameState';
 import { unoCardOptions, unoBackOptions } from '../rendering/cardAssets';
+import { getDeviceContext } from '../layout/deviceContext';
+import type { LayoutMode, InputMode } from '../layout/deviceContext';
+import { DEBUG } from '../layout/deviceContext';
 
 const AI_DELAY_MS = 1200;
 
@@ -48,6 +51,10 @@ export class UnoGameScene extends Phaser.Scene {
   private state!: UnoGameState;
   private slots!: SlotConfig[];
   private humanPlayerId!: string;
+
+  // Device/layout context (consumed by layout logic — portrait layout TODO)
+  layoutMode: LayoutMode = 'landscape';
+  inputMode: InputMode = 'mouse';
 
   private handRenderers: Map<string, CardRenderer[]> = new Map();
   private discardPileRenderers: CardRenderer[] = [];
@@ -98,9 +105,15 @@ export class UnoGameScene extends Phaser.Scene {
 
   create(): void {
     const W = this.scale.width;
-    const H = this.scale.height;
+    const H = Math.max(600, this.scale.height);
 
     this.bg = this.add.rectangle(W / 2, H / 2, W, H, 0x1a472a);
+
+    // Determine device context
+    const ctx = getDeviceContext(W, H);
+    this.layoutMode = ctx.layoutMode;
+    this.inputMode = ctx.inputMode;
+    if (DEBUG) console.log(`[UNO] Device context: layout=${ctx.layoutMode}, input=${ctx.inputMode}, mobile=${ctx.isMobile} (${W}x${H})`);
 
     // Central area objects (created once, repositioned on resize)
     this.drawPileHitArea = this.add.rectangle(0, 0, 10, 10, 0xffffff, 0).setDepth(6);
@@ -115,63 +128,82 @@ export class UnoGameScene extends Phaser.Scene {
     this.hud.initPlayerLabels(this.slots, W, H, this.humanPlayerId);
     this._syncPlayerLabels();
 
-    // Debug reset
-    this.resetBg = this.add.rectangle(0, 0, 140, 40, 0x333333).setDepth(999).setInteractive({ useHandCursor: true });
-    this.resetLabel = this.add.text(0, 0, '↺ Reset', {
-      fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
-    }).setOrigin(0.5, 0.5).setDepth(1000);
-    this.resetBg.on('pointerover', () => this.resetBg.setFillStyle(0x555555));
-    this.resetBg.on('pointerout',  () => this.resetBg.setFillStyle(0x333333));
-    this.resetBg.on('pointerdown', () => this.scene.restart());
-    this._positionReset(W, H);
+    // Debug buttons (controlled by DEBUG env var)
+    const showDebug = DEBUG;
 
-    // Debug +1 card to all players
-    const addBg = this.add.rectangle(0, 0, 60, 40, 0x336633).setDepth(999).setInteractive({ useHandCursor: true });
-    const addLabel = this.add.text(0, 0, '+1', {
-      fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
-    }).setOrigin(0.5, 0.5).setDepth(1000);
-    addBg.on('pointerover', () => addBg.setFillStyle(0x448844));
-    addBg.on('pointerout',  () => addBg.setFillStyle(0x336633));
-    addBg.on('pointerdown', () => {
-      for (const p of this.state.players) {
-        this.state = reshuffleIfNeeded(this.state);
-        const card = this.state.drawPile[this.state.drawPile.length - 1];
-        if (card) {
-          this.state = { ...this.state, drawPile: this.state.drawPile.slice(0, -1) };
-          p.hand.add(card);
+    if (showDebug) {
+      // Debug reset
+      this.resetBg = this.add.rectangle(0, 0, 140, 40, 0x333333).setDepth(999).setInteractive({ useHandCursor: true });
+      this.resetLabel = this.add.text(0, 0, '↺ Reset', {
+        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+      }).setOrigin(0.5, 0.5).setDepth(1000);
+      this.resetBg.on('pointerover', () => this.resetBg.setFillStyle(0x555555));
+      this.resetBg.on('pointerout',  () => this.resetBg.setFillStyle(0x333333));
+      this.resetBg.on('pointerdown', () => this.scene.restart());
+
+      // Debug +1 card to all players
+      const addBg = this.add.rectangle(0, 0, 60, 40, 0x336633).setDepth(999).setInteractive({ useHandCursor: true });
+      const addLabel = this.add.text(0, 0, '+1', {
+        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+      }).setOrigin(0.5, 0.5).setDepth(1000);
+      addBg.on('pointerover', () => addBg.setFillStyle(0x448844));
+      addBg.on('pointerout',  () => addBg.setFillStyle(0x336633));
+      addBg.on('pointerdown', () => {
+        for (const p of this.state.players) {
+          this.state = reshuffleIfNeeded(this.state);
+          const card = this.state.drawPile[this.state.drawPile.length - 1];
+          if (card) {
+            this.state = { ...this.state, drawPile: this.state.drawPile.slice(0, -1) };
+            p.hand.add(card);
+          }
         }
-      }
-      this._fullRedraw();
-    });
+        this._fullRedraw();
+      });
 
-    // Debug -1 card from all players
-    const remBg = this.add.rectangle(0, 0, 60, 40, 0x663333).setDepth(999).setInteractive({ useHandCursor: true });
-    const remLabel = this.add.text(0, 0, '-1', {
-      fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
-    }).setOrigin(0.5, 0.5).setDepth(1000);
-    remBg.on('pointerover', () => remBg.setFillStyle(0x884444));
-    remBg.on('pointerout',  () => remBg.setFillStyle(0x663333));
-    remBg.on('pointerdown', () => {
-      for (const p of this.state.players) {
-        if (p.hand.count > 1) {
-          const card = p.hand.cards[p.hand.cards.length - 1];
-          p.hand.remove(card.id);
-          this.state = { ...this.state, drawPile: [...this.state.drawPile, card] };
+      // Debug -1 card from all players
+      const remBg = this.add.rectangle(0, 0, 60, 40, 0x663333).setDepth(999).setInteractive({ useHandCursor: true });
+      const remLabel = this.add.text(0, 0, '-1', {
+        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+      }).setOrigin(0.5, 0.5).setDepth(1000);
+      remBg.on('pointerover', () => remBg.setFillStyle(0x884444));
+      remBg.on('pointerout',  () => remBg.setFillStyle(0x663333));
+      remBg.on('pointerdown', () => {
+        for (const p of this.state.players) {
+          if (p.hand.count > 1) {
+            const card = p.hand.cards[p.hand.cards.length - 1];
+            p.hand.remove(card.id);
+            this.state = { ...this.state, drawPile: [...this.state.drawPile, card] };
+          }
         }
-      }
-      this._fullRedraw();
-    });
+        this._fullRedraw();
+      });
 
-    // Store debug buttons for repositioning
-    this._debugAdd = { bg: addBg, label: addLabel };
-    this._debugRem = { bg: remBg, label: remLabel };
-    this._positionReset(W, H);
+      this._debugAdd = { bg: addBg, label: addLabel };
+      this._debugRem = { bg: remBg, label: remLabel };
+      this._positionReset(W, H);
+    }
 
     this.scale.on('resize', (gs: Phaser.Structs.Size) => this._onResize(gs.width, gs.height));
     this._startTurn();
   }
 
   private _onResize(W: number, H: number): void {
+    // Clamp: below 600px height, freeze all layout at the last valid state
+    if (H < 600) return;
+
+    // Recalculate layout mode on resize
+    const ctx = getDeviceContext(W, H);
+    if (ctx.layoutMode !== this.layoutMode) {
+      if (DEBUG) console.log(`[UNO] Layout mode changed: ${this.layoutMode} → ${ctx.layoutMode} (${W}x${H})`);
+    }
+    this.layoutMode = ctx.layoutMode;
+    this.inputMode = ctx.inputMode;
+
+    if (DEBUG) {
+      const ratio = W / H;
+      console.log(`[UNO] Resize: ${Math.round(W)}x${Math.round(H)} | W:H ratio = ${ratio.toFixed(3)}`);
+    }
+
     this.bg.setPosition(W / 2, H / 2).setSize(W, H);
     this._layoutCentralArea(W, H);
     this._fullRedraw(W, H);
@@ -179,6 +211,7 @@ export class UnoGameScene extends Phaser.Scene {
   }
 
   private _positionReset(W: number, H: number): void {
+    if (!this.resetBg) return;
     this.resetBg.setPosition(W - 80, H - 30);
     this.resetLabel.setPosition(W - 80, H - 30);
     if (this._debugAdd) {
@@ -306,8 +339,13 @@ export class UnoGameScene extends Phaser.Scene {
         });
         r.container.on('pointerout', () => {
           this.tweens.killTweensOf(r.container);
-          this.tweens.add({ targets: r.container, y: baseY, duration: 120, ease: 'Power2' });
+          // Return to resting position (may be pushed down if illegal during player's turn)
+          const restY = r.container.getData('restY') ?? baseY;
+          this.tweens.add({ targets: r.container, y: restY, duration: 120, ease: 'Power2' });
         });
+        // Store base Y for later reference
+        r.container.setData('baseY', baseY);
+        r.container.setData('restY', baseY);
 
         renderers.push(r);
       });
@@ -373,10 +411,18 @@ export class UnoGameScene extends Phaser.Scene {
 
   private _fullRedraw(W?: number, H?: number): void {
     const w = W ?? this.scale.width;
-    const h = H ?? this.scale.height;
+    const h = Math.max(600, H ?? this.scale.height);
     for (const slot of this.slots) this._renderHand(slot, w, h);
     this._renderDiscardTop(w, h);
     this.hud.update(this.state, this.slots);
+
+    // Re-enable input if it's the human's turn (redraw destroys handlers)
+    if (this.state.phase === 'playing' && !this.processingTurn) {
+      const current = this.state.players[this.state.currentPlayerIndex];
+      if (current.type === 'human') {
+        this._enableHumanInput();
+      }
+    }
   }
 
   // ── Turn management ───────────────────────────────────────────────────────
@@ -423,11 +469,10 @@ export class UnoGameScene extends Phaser.Scene {
       };
 
       if (playedCard) {
-        // Redraw opponent hands immediately (card count decreases as animation starts)
-        for (const slot of this.slots) {
-          if (slot.playerId !== this.humanPlayerId) {
-            this._renderHand(slot, this.scale.width, this.scale.height);
-          }
+        // Redraw only the hand of the player who just played (card count decreases as animation starts)
+        const playedSlot = this.slots.find((sl) => sl.playerId === playerId);
+        if (playedSlot) {
+          this._renderHand(playedSlot, this.scale.width, Math.max(600, this.scale.height));
         }
         this.hud.update(this.state, this.slots);
         // Animate card from opponent's edge to discard pile
@@ -570,6 +615,13 @@ export class UnoGameScene extends Phaser.Scene {
     renderers.forEach((r) => {
       const legal = UnoRules.isPlayable(r.card, topCard, this.state.activeDrawStack, this.state.chosenWildColor);
       r.setHighlighted(legal);
+
+      // Lift legal cards up slightly from base position
+      if (legal) {
+        const liftUp = this.scale.height * 0.014;
+        r.container.y -= liftUp;
+        r.container.setData('restY', r.container.y);
+      }
 
       // Add click handler (hover is always active from _renderHand)
       r.container.on('pointerdown', () => {
