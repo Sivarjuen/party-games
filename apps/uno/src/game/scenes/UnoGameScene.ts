@@ -338,13 +338,107 @@ export class UnoGameScene extends Phaser.Scene {
   private _runAiTurn(playerId: string): void {
     if (this.processingTurn) return;
     this.processingTurn = true;
+
+    const prevDiscardCount = this.state.discardPile.length;
+
     UnoAI.processAiTurn(this.state, playerId, AI_DELAY_MS).then((newState) => {
+      const playedCard = newState.discardPile.length > prevDiscardCount
+        ? newState.discardPile[newState.discardPile.length - 1]
+        : null;
+
       this.state = newState;
-      this._fullRedraw();
-      this.processingTurn = false;
-      if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
-      const next = this.state.players[this.state.currentPlayerIndex];
-      if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
+
+      if (playedCard) {
+        // Animate card from opponent's edge to discard pile
+        this._animateOpponentCard(playerId, playedCard, () => {
+          this._fullRedraw();
+          this.processingTurn = false;
+          if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
+          const next = this.state.players[this.state.currentPlayerIndex];
+          if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
+        });
+      } else {
+        // No card played (drew instead) — just redraw
+        this._fullRedraw();
+        this.processingTurn = false;
+        if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
+        const next = this.state.players[this.state.currentPlayerIndex];
+        if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
+      }
+    });
+  }
+
+  /** Animate a card from the opponent's slot edge to the discard pile. */
+  private _animateOpponentCard(playerId: string, card: Card, onComplete: () => void): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const { discardPile } = getCentralAreaPositions(W, H);
+    const s = cardSizes(H);
+
+    // Find the slot for this player
+    const slot = this.slots.find((sl) => sl.playerId === playerId);
+    if (!slot) { onComplete(); return; }
+
+    // Determine start position (off-screen edge of their slot)
+    let startX = W / 2;
+    let startY = 0;
+    let startRotation = 0;
+
+    switch (slot.position) {
+      case 'top-center':
+        startY = -s.oppH / 2;
+        startRotation = 0;
+        break;
+      case 'top-left':
+        startY = -s.oppH / 2;
+        startRotation = -Math.PI / 6; // angled toward center
+        break;
+      case 'top-right':
+        startY = -s.oppH / 2;
+        startRotation = Math.PI / 6; // angled toward center
+        break;
+      case 'left':
+        startX = -s.oppH / 2;
+        startY = H / 2;
+        startRotation = Math.PI / 2;
+        break;
+      case 'right':
+        startX = W + s.oppH / 2;
+        startY = H / 2;
+        startRotation = -Math.PI / 2;
+        break;
+      default:
+        break;
+    }
+
+    // For top slots, use the slot's center x
+    if (slot.position.startsWith('top')) {
+      const topSlots = this.slots.filter((sl) => sl.position.startsWith('top'));
+      const topIdx = topSlots.findIndex((sl) => sl.playerId === playerId);
+      const bounds = getSlotBounds(slot.position, W, H, topSlots.length, topIdx);
+      startX = bounds.x + bounds.width / 2;
+    }
+
+    // Create a temporary card renderer at the start position
+    const tempCard = new CardRenderer(this, card, {
+      faceDown: false, width: s.playerW, height: s.playerH,
+    });
+    tempCard.container.setPosition(startX, startY);
+    tempCard.container.setRotation(startRotation);
+    tempCard.container.setDepth(200);
+
+    // Tween to discard pile
+    this.tweens.add({
+      targets: tempCard.container,
+      x: discardPile.x,
+      y: discardPile.y,
+      rotation: 0,
+      duration: 350,
+      ease: 'Power2',
+      onComplete: () => {
+        tempCard.destroy();
+        onComplete();
+      },
     });
   }
 
@@ -400,11 +494,53 @@ export class UnoGameScene extends Phaser.Scene {
       this.state = { ...this.state, phase: 'color-pick' };
       new ColorPickerUI(this, W, H, (color) => {
         this.state = { ...this.state, chosenWildColor: color, phase: 'playing' };
-        this._commitPlayCard(card);
+        this._animatePlayerCard(card);
       });
     } else {
-      this._commitPlayCard(card);
+      this._animatePlayerCard(card);
     }
+  }
+
+  /** Animate the player's card from hand to discard pile, then commit. */
+  private _animatePlayerCard(card: Card): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const { discardPile } = getCentralAreaPositions(W, H);
+    const s = cardSizes(H);
+
+    // Find the renderer for this card
+    const renderers = this.handRenderers.get(this.humanPlayerId) ?? [];
+    const cardRenderer = renderers.find((r) => r.card.id === card.id);
+
+    if (!cardRenderer) {
+      // Fallback: no animation
+      this._commitPlayCard(card);
+      return;
+    }
+
+    // Stop hover from interfering
+    cardRenderer.container.removeAllListeners();
+    cardRenderer.container.disableInteractive();
+    this.tweens.killTweensOf(cardRenderer.container);
+
+    // Tween card to discard pile position
+    this.tweens.add({
+      targets: cardRenderer.container,
+      x: discardPile.x,
+      y: discardPile.y,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 300,
+      ease: 'Power2',
+      onComplete: () => {
+        cardRenderer.destroy();
+        this._commitPlayCard(card);
+      },
+    });
+    // Bring to front during animation
+    cardRenderer.container.setDepth(200);
+    void s;
   }
 
   private _commitPlayCard(card: Card): void {
