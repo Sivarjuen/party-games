@@ -21,6 +21,8 @@
 - Use normalized coordinates (0..1) for all position/cursor data
 - Throttle cursor updates to ~20Hz; do not send on every `mousemove`
 - Remote cursor markers must interpolate toward target positions each frame (no visual snapping)
+- Local cursor color: green (`0x44ff88`); remote cursors: cycle a color palette (red, blue, orange, purple, pink)
+- Each remote player gets a colored dot and a short ID label rendered via Phaser graphics
 
 ## Phaser Specifics
 

@@ -82,6 +82,12 @@ Uses the same presence foundation. Messages: `draw.start`, `draw.point`, `draw.e
 - Route users into selected game
 - Reuses `@party/net` and `@party/protocol`
 
+### Repo Naming Convention
+
+- This repo: `party-games` (or `party-games-client`)
+- Relay server repo: `party-games-relay`
+- Keep them separate — no backend code in this repo
+
 ## Anti-Patterns to Avoid
 
 - Hardcoded server URLs

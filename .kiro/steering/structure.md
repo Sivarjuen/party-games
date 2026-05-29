@@ -62,7 +62,7 @@ Each subfolder is a standalone game or web app. Each has its own `package.json` 
 Reusable internal packages consumed by apps. Each folder must be a real package with a `package.json`. Not a dumping ground — only genuinely cross-app code lives here.
 
 - `shared/protocol` — mirrors relay server message contracts; contains message types, payload types, envelope interfaces, validation helpers
-- `shared/net` — WebSocket connect/disconnect, reconnect handling, send/receive wrappers, event subscriptions (heartbeat and auth hooks later)
+- `shared/net` — WebSocket connect/disconnect, reconnect handling, send/receive wrappers, event subscriptions; planned future additions: heartbeat support, auth/session hooks
 - `shared/presence` — remote cursor rendering models, player state tracking, interpolation helpers, color assignment, labels
 
 ## Package Naming Convention
