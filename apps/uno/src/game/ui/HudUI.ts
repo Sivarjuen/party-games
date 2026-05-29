@@ -7,7 +7,11 @@ export class HudUI {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
 
-  private directionText: Phaser.GameObjects.Text;
+  // Direction icon (replaces text)
+  private directionIcon: Phaser.GameObjects.Image;
+  private directionTween: Phaser.Tweens.Tween | null = null;
+  private currentDirection: 1 | -1 = 1;
+
   private drawStackBg: Phaser.GameObjects.Rectangle;
   private drawStackText: Phaser.GameObjects.Text;
   private playerLabels: Map<string, Phaser.GameObjects.Text> = new Map();
@@ -18,14 +22,12 @@ export class HudUI {
     this.scene = scene;
     this.container = scene.add.container(0, 0).setDepth(50);
 
-    this.directionText = scene.add
-      .text(20, 20, '↻ Clockwise', {
-        fontFamily: 'Consolas, monospace',
-        fontSize: '22px',
-        color: '#ffffff',
-      })
-      .setOrigin(0, 1)
-      .setAlpha(0.8);
+    // Turn direction icon — spinning clockwise by default
+    this.directionIcon = scene.add.image(0, 0, 'turn-icon')
+      .setDisplaySize(48, 48)
+      .setAlpha(0.85);
+
+    this._startSpin(1);
 
     this.drawStackBg = scene.add.rectangle(0, 0, 160, 50, 0xcc0000).setVisible(false);
     this.drawStackText = scene.add
@@ -38,13 +40,12 @@ export class HudUI {
       .setOrigin(0.5, 0.5)
       .setVisible(false);
 
-    this.container.add([this.directionText, this.drawStackBg, this.drawStackText]);
+    this.container.add([this.directionIcon, this.drawStackBg, this.drawStackText]);
   }
 
   initPlayerLabels(slots: SlotConfig[], _W: number, _H: number, humanPlayerId?: string): void {
     this.slots = slots;
     if (humanPlayerId) this.humanPlayerId = humanPlayerId;
-    // Create labels (will be positioned by reposition())
     for (const slot of slots) {
       const label = this.scene.add
         .text(0, 0, slot.playerId, {
@@ -55,7 +56,6 @@ export class HudUI {
         .setOrigin(0.5, 0)
         .setDepth(1);
       this.playerLabels.set(slot.playerId, label);
-      // Not added to container — labels stay at scene-level depth 1 (below cards)
     }
     this.reposition(_W, _H);
   }
@@ -64,15 +64,14 @@ export class HudUI {
     this.playerLabels.get(playerId)?.setText(name);
   }
 
-  /** Reposition all HUD elements for the current window size. */
   reposition(W: number, H: number): void {
-    this.directionText.setPosition(20, H - 20);
-    this.directionText.setOrigin(0, 1);
+    // Direction icon — bottom left
+    this.directionIcon.setPosition(44, H - 44);
 
-    // Draw stack counter — further to the right of the discard pile
+    // Draw stack counter — to the right of the discard pile
     const { discardPile } = getCentralAreaPositions(W, H);
     const playerCardH = H * 0.30;
-    const stackX = discardPile.x + playerCardH * (2/3) / 2 + 160;
+    const stackX = discardPile.x + playerCardH * (2 / 3) / 2 + 160;
     this.drawStackBg.setPosition(stackX, discardPile.y);
     this.drawStackText.setPosition(stackX, discardPile.y);
 
@@ -96,7 +95,6 @@ export class HudUI {
       let labelRotation = 0;
 
       if (slot.position === 'bottom') {
-        // "YOUR TURN" label — centered above the discard pile
         labelX = discardPile.x;
         labelY = discardPile.y - playerCardH / 2 - 60;
       } else if (slot.position.startsWith('top')) {
@@ -118,13 +116,15 @@ export class HudUI {
   update(state: UnoGameState, _slots: SlotConfig[]): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
-
-    // Reposition on every update (handles resize)
     this.reposition(W, H);
 
-    const dir = state.direction === 1 ? '↺ Counter-clockwise' : '↻ Clockwise';
-    this.directionText.setText(dir);
+    // Update direction spin if changed
+    if (state.direction !== this.currentDirection) {
+      this.currentDirection = state.direction;
+      this._startSpin(state.direction);
+    }
 
+    // Draw stack counter
     if (state.activeDrawStack > 0) {
       this.drawStackBg.setVisible(true);
       this.drawStackText.setText(`Draw +${state.activeDrawStack}`).setVisible(true);
@@ -140,7 +140,6 @@ export class HudUI {
       const isHuman = pid === this.humanPlayerId;
 
       if (isHuman) {
-        // Only show label on human's turn — above discard pile, all caps, larger
         if (isActive) {
           label.setText('YOUR TURN').setVisible(true);
           label.setFontSize(28);
@@ -157,7 +156,30 @@ export class HudUI {
     });
   }
 
+  private _startSpin(direction: 1 | -1): void {
+    if (this.directionTween) {
+      this.directionTween.destroy();
+      this.directionTween = null;
+    }
+
+    // Flip the icon horizontally for counter-clockwise
+    this.directionIcon.setFlipX(direction === -1);
+
+    // Continuous slow rotation
+    const spinDirection = direction === 1 ? 1 : -1;
+    this.directionIcon.setRotation(0);
+    this.directionTween = this.scene.tweens.add({
+      targets: this.directionIcon,
+      rotation: spinDirection * Math.PI * 2,
+      duration: 4000,
+      repeat: -1,
+      ease: 'Linear',
+    });
+  }
+
   destroy(): void {
+    if (this.directionTween) this.directionTween.destroy();
     this.container.destroy(true);
+    this.playerLabels.forEach((label) => label.destroy());
   }
 }

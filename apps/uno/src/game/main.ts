@@ -10,7 +10,7 @@ const config: Types.Core.GameConfig = {
     mode: Scale.RESIZE,
     autoCenter: Scale.CENTER_BOTH,
   },
-  scene: [PlayerSelectScene, UnoGameScene],
+  scene: [UnoGameScene, PlayerSelectScene],  // DEV: skip menu, load 6-player game directly
 };
 
 const StartGame = (parent: string): Game => {

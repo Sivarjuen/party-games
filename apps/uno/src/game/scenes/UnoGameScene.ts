@@ -10,13 +10,14 @@ import { HudUI } from '../ui/HudUI';
 import { ColorPickerUI } from '../ui/ColorPickerUI';
 import { WinOverlayUI } from '../ui/WinOverlayUI';
 import type { UnoGameState, UnoPlayer } from '../state/UnoGameState';
+import { unoCardOptions, unoBackOptions } from '../rendering/cardAssets';
 
 const AI_DELAY_MS = 1200;
 
 // ── Height-relative sizing constants ────────────────────────────────────────
 // All expressed as fractions of screen height (H).
 const CARD_H_FRAC     = 0.30;   // player card height = 30% of H
-const CARD_RATIO      = 2 / 3;  // width:height = 2:3
+const CARD_RATIO      = 670 / 1043;  // width:height from actual card assets
 const OPP_CARD_H_FRAC = 0.15;   // opponent card height = 15% of H
 const OVERLAP_FRAC    = 0.38;   // step = cardWidth * this
 const PEEK_FRAC       = 0.25;   // 25% of card hangs off-screen
@@ -50,10 +51,9 @@ export class UnoGameScene extends Phaser.Scene {
 
   private handRenderers: Map<string, CardRenderer[]> = new Map();
   private discardPileRenderer: CardRenderer | null = null;
+  private _drawPileBack: CardRenderer | null = null;
   private drawPileHitArea: Phaser.GameObjects.Rectangle | null = null;
   private bg!: Phaser.GameObjects.Rectangle;
-  private centralGfx!: Phaser.GameObjects.Graphics;
-  private drawPileLabel!: Phaser.GameObjects.Text;
   private resetBg!: Phaser.GameObjects.Rectangle;
   private resetLabel!: Phaser.GameObjects.Text;
   private _debugAdd!: { bg: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text };
@@ -66,8 +66,26 @@ export class UnoGameScene extends Phaser.Scene {
     super('UnoGameScene');
   }
 
+  preload(): void {
+    // Card face assets
+    for (let i = 0; i <= 9; i++) {
+      this.load.image(`card-${i}`, `/assets/cards/${i}.png`);
+    }
+    this.load.image('card-skip', '/assets/cards/skip.png');
+    this.load.image('card-rev', '/assets/cards/rev.png');
+    this.load.image('card-plus2', '/assets/cards/plus2.png');
+    this.load.image('card-plus4', '/assets/cards/plus4.png');
+    this.load.image('card-wild', '/assets/cards/wild.png');
+
+    // Card back
+    this.load.image('card-back', '/assets/backgrounds/back.png');
+
+    // Turn icon
+    this.load.image('turn-icon', '/assets/ui/turn_icon.png');
+  }
+
   init(data: UnoSceneData): void {
-    const playerCount = data?.playerCount ?? 4;
+    const playerCount = data?.playerCount ?? 6;  // DEV: default to 6 for testing
     const humanIndex  = data?.humanIndex  ?? 0;
     this.state = dealInitialHands(playerCount, humanIndex);
     this.humanPlayerId = this.state.players.find((p) => p.type === 'human')?.id ?? 'player-0';
@@ -83,10 +101,6 @@ export class UnoGameScene extends Phaser.Scene {
     this.bg = this.add.rectangle(W / 2, H / 2, W, H, 0x1a472a);
 
     // Central area objects (created once, repositioned on resize)
-    this.centralGfx = this.add.graphics().setDepth(4);
-    this.drawPileLabel = this.add.text(0, 0, 'DRAW', {
-      fontFamily: 'Consolas, monospace', fontSize: '24px', color: '#aaaaaa',
-    }).setOrigin(0.5, 0.5).setDepth(5);
     this.drawPileHitArea = this.add.rectangle(0, 0, 10, 10, 0xffffff, 0).setDepth(6);
 
     this._layoutCentralArea(W, H);
@@ -181,14 +195,15 @@ export class UnoGameScene extends Phaser.Scene {
     const { playerW, playerH } = cardSizes(H);
     const { drawPile, discardPile } = getCentralAreaPositions(W, H);
 
-    this.centralGfx.clear();
-    this.centralGfx.fillStyle(0x1a1a2e, 1);
-    this.centralGfx.fillRoundedRect(drawPile.x - playerW / 2, drawPile.y - playerH / 2, playerW, playerH, 10);
-    this.centralGfx.lineStyle(2, 0x555577, 1);
-    this.centralGfx.strokeRoundedRect(drawPile.x - playerW / 2, drawPile.y - playerH / 2, playerW, playerH, 10);
-
-    this.drawPileLabel.setPosition(drawPile.x, drawPile.y);
+    // Draw pile — card back image
     this.drawPileHitArea!.setPosition(drawPile.x, drawPile.y).setSize(playerW, playerH);
+
+    // Render draw pile card back
+    if (this._drawPileBack) this._drawPileBack.destroy();
+    this._drawPileBack = new CardRenderer(this, { id: 'draw-pile', color: null, type: 'number' },
+      unoBackOptions({ width: playerW, height: playerH }),
+    );
+    this._drawPileBack.container.setPosition(drawPile.x, drawPile.y).setDepth(4);
 
     void discardPile;
     this._renderDiscardTop(W, H);
@@ -203,7 +218,11 @@ export class UnoGameScene extends Phaser.Scene {
 
     const { playerW, playerH } = cardSizes(H);
     const { discardPile } = getCentralAreaPositions(W, H);
-    const r = new CardRenderer(this, topCard, { faceDown: false, width: playerW, height: playerH });
+    const r = new CardRenderer(this, topCard, unoCardOptions(topCard, {
+      width: playerW,
+      height: playerH,
+      chosenWildColor: this.state.chosenWildColor,
+    }));
     r.container.setPosition(discardPile.x, discardPile.y).setDepth(7);
     this.discardPileRenderer = r;
   }
@@ -237,7 +256,8 @@ export class UnoGameScene extends Phaser.Scene {
       player.hand.cards.forEach((card, i) => {
         const x = cx - totalSpread / 2 + i * step;
         const r = new CardRenderer(this, card, {
-          faceDown: false, interactive: true, width: s.playerW, height: s.playerH,
+          ...unoCardOptions(card, { width: s.playerW, height: s.playerH }),
+          interactive: true,
         });
         r.container.setPosition(x, y).setDepth(10 + i);
 
@@ -270,9 +290,7 @@ export class UnoGameScene extends Phaser.Scene {
 
       player.hand.cards.forEach((card, i) => {
         const x = cx - totalSpread / 2 + i * step;
-        const r = new CardRenderer(this, card, {
-          faceDown: true, width: s.oppW, height: s.oppH,
-        });
+        const r = new CardRenderer(this, card, unoBackOptions({ width: s.oppW, height: s.oppH }));
         r.container.setPosition(x, y).setRotation(Math.PI).setDepth(10 + i);
         renderers.push(r);
       });
@@ -362,6 +380,13 @@ export class UnoGameScene extends Phaser.Scene {
       };
 
       if (playedCard) {
+        // Redraw opponent hands immediately (card count decreases as animation starts)
+        for (const slot of this.slots) {
+          if (slot.playerId !== this.humanPlayerId) {
+            this._renderHand(slot, this.scale.width, this.scale.height);
+          }
+        }
+        this.hud.update(this.state, this.slots);
         // Animate card from opponent's edge to discard pile
         this._animateOpponentCard(playerId, playedCard, continueAfterAnim);
       } else if (cardsDrawn > 0) {
@@ -457,10 +482,10 @@ export class UnoGameScene extends Phaser.Scene {
       startX = bounds.x + bounds.width / 2;
     }
 
-    // Create a temporary card renderer at the start position
-    const tempCard = new CardRenderer(this, card, {
-      faceDown: false, width: s.playerW, height: s.playerH,
-    });
+    // Create a temporary card renderer at the start position (face-up, showing the played card)
+    const tempCard = new CardRenderer(this, card, unoCardOptions(card, {
+      width: s.playerW, height: s.playerH, chosenWildColor: this.state.chosenWildColor,
+    }));
     tempCard.container.setPosition(startX, startY);
     tempCard.container.setRotation(startRotation);
     tempCard.container.setDepth(200);
@@ -471,8 +496,8 @@ export class UnoGameScene extends Phaser.Scene {
       x: discardPile.x,
       y: discardPile.y,
       rotation: 0,
-      duration: 350,
-      ease: 'Power2',
+      duration: 400,
+      ease: 'Cubic.easeOut',
       onComplete: () => {
         tempCard.destroy();
         onComplete();
@@ -508,11 +533,11 @@ export class UnoGameScene extends Phaser.Scene {
     this.drawPileHitArea?.removeAllListeners();
     if (!hasLegal) {
       this.drawPileHitArea?.setInteractive({ useHandCursor: true });
-      this.drawPileHitArea?.setStrokeStyle(4, 0xff9900);
+      this._drawPileBack?.setHighlighted(true);
       this.drawPileHitArea?.on('pointerdown', () => { this._disableHumanInput(); this._humanDraw(); });
     } else {
       this.drawPileHitArea?.disableInteractive();
-      this.drawPileHitArea?.setStrokeStyle(0);
+      this._drawPileBack?.setHighlighted(false);
     }
   }
 
@@ -522,7 +547,7 @@ export class UnoGameScene extends Phaser.Scene {
       r.container.off('pointerdown');
     });
     this.drawPileHitArea?.removeAllListeners();
-    this.drawPileHitArea?.setStrokeStyle(0);
+    this._drawPileBack?.setHighlighted(false);
   }
 
   private _humanPlayCard(card: Card): void {
@@ -569,8 +594,8 @@ export class UnoGameScene extends Phaser.Scene {
       rotation: 0,
       scaleX: 1,
       scaleY: 1,
-      duration: 300,
-      ease: 'Power2',
+      duration: 400,
+      ease: 'Cubic.easeOut',
       onComplete: () => {
         cardRenderer.destroy();
         this._commitPlayCard(card);
