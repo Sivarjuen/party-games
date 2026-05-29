@@ -340,31 +340,69 @@ export class UnoGameScene extends Phaser.Scene {
     this.processingTurn = true;
 
     const prevDiscardCount = this.state.discardPile.length;
+    const prevHandCount = this.state.players.find((p) => p.id === playerId)?.hand.count ?? 0;
 
     UnoAI.processAiTurn(this.state, playerId, AI_DELAY_MS).then((newState) => {
       const playedCard = newState.discardPile.length > prevDiscardCount
         ? newState.discardPile[newState.discardPile.length - 1]
         : null;
 
+      // Detect how many cards were drawn by this player
+      const newHandCount = newState.players.find((p) => p.id === playerId)?.hand.count ?? 0;
+      const cardsDrawn = newHandCount - prevHandCount + (playedCard ? 1 : 0); // +1 if they drew then played
+
       this.state = newState;
 
-      if (playedCard) {
-        // Animate card from opponent's edge to discard pile
-        this._animateOpponentCard(playerId, playedCard, () => {
-          this._fullRedraw();
-          this.processingTurn = false;
-          if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
-          const next = this.state.players[this.state.currentPlayerIndex];
-          if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
-        });
-      } else {
-        // No card played (drew instead) — just redraw
+      const continueAfterAnim = () => {
         this._fullRedraw();
         this.processingTurn = false;
         if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
         const next = this.state.players[this.state.currentPlayerIndex];
         if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
+      };
+
+      if (playedCard) {
+        // Animate card from opponent's edge to discard pile
+        this._animateOpponentCard(playerId, playedCard, continueAfterAnim);
+      } else if (cardsDrawn > 0) {
+        // AI drew cards — animate draw from pile to their hand
+        // State already updated, just show the visual
+        this._animateDrawVisual(playerId, cardsDrawn, continueAfterAnim);
+      } else {
+        continueAfterAnim();
       }
+    });
+  }
+
+  /** Visual-only draw animation (state already committed). */
+  private _animateDrawVisual(playerId: string, count: number, onComplete: () => void): void {
+    if (count <= 0) { onComplete(); return; }
+
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const { drawPile } = getCentralAreaPositions(W, H);
+    const s = cardSizes(H);
+    const target = this._getHandEndPosition(playerId, W, H);
+
+    const tempCard = new CardRenderer(this, { id: 'temp', color: null, type: 'number' }, {
+      faceDown: true,
+      width: s.oppW,
+      height: s.oppH,
+    });
+    tempCard.container.setPosition(drawPile.x, drawPile.y);
+    tempCard.container.setDepth(200);
+
+    this.tweens.add({
+      targets: tempCard.container,
+      x: target.x,
+      y: target.y,
+      rotation: target.rotation,
+      duration: 250,
+      ease: 'Power2',
+      onComplete: () => {
+        tempCard.destroy();
+        this._animateDrawVisual(playerId, count - 1, onComplete);
+      },
     });
   }
 
@@ -566,28 +604,129 @@ export class UnoGameScene extends Phaser.Scene {
     if (!drawn) { this.state = advanceTurn(this.state); this._fullRedraw(); this._startTurn(); return; }
 
     if (this.state.activeDrawStack > 0) {
+      // Draw stack: animate each card sequentially
       const count = this.state.activeDrawStack;
-      for (let i = 0; i < count; i++) {
-        this.state = reshuffleIfNeeded(this.state);
-        const c = this.state.drawPile[this.state.drawPile.length - 1];
-        if (!c) break;
-        this.state = { ...this.state, drawPile: this.state.drawPile.slice(0, -1) };
-        this.state.players.find((p) => p.id === this.humanPlayerId)?.hand.add(c);
-      }
-      this.state = { ...this.state, activeDrawStack: 0, skipNext: false };
-      this.state = advanceTurn(this.state);
-      this._fullRedraw(); this._startTurn(); return;
+      this._animateDrawSequence(this.humanPlayerId, count, true, () => {
+        this.state = { ...this.state, activeDrawStack: 0, skipNext: false };
+        this.state = advanceTurn(this.state);
+        this._fullRedraw(); this._startTurn();
+      });
+      return;
     }
 
-    this.state = { ...this.state, drawPile: this.state.drawPile.slice(0, -1) };
-    this.state.players.find((p) => p.id === this.humanPlayerId)?.hand.add(drawn);
-    this._fullRedraw();
+    // Single draw with animation
+    this._animateDrawCard(this.humanPlayerId, true, () => {
+      // Card already added to hand by _animateDrawCard
+      this._fullRedraw();
+      const topCard = this.state.discardPile[this.state.discardPile.length - 1];
+      if (topCard && UnoRules.isPlayable(drawn, topCard, this.state.activeDrawStack, this.state.chosenWildColor)) {
+        this._enableHumanInput();
+      } else {
+        this.state = advanceTurn(this.state); this._startTurn();
+      }
+    });
+  }
 
-    const topCard = this.state.discardPile[this.state.discardPile.length - 1];
-    if (topCard && UnoRules.isPlayable(drawn, topCard, this.state.activeDrawStack, this.state.chosenWildColor)) {
-      this._enableHumanInput();
+  /** Animate drawing a single card from draw pile to a player's hand end position. */
+  private _animateDrawCard(playerId: string, isHuman: boolean, onComplete: () => void): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const { drawPile } = getCentralAreaPositions(W, H);
+    const s = cardSizes(H);
+
+    // Actually draw the card from state
+    this.state = reshuffleIfNeeded(this.state);
+    const card = this.state.drawPile[this.state.drawPile.length - 1];
+    if (!card) { onComplete(); return; }
+    this.state = { ...this.state, drawPile: this.state.drawPile.slice(0, -1) };
+    this.state.players.find((p) => p.id === playerId)?.hand.add(card);
+
+    // Compute target position (where the new last card will be)
+    const target = this._getHandEndPosition(playerId, W, H);
+
+    const cardW = isHuman ? s.playerW : s.oppW;
+    const cardH = isHuman ? s.playerH : s.oppH;
+
+    // Create temp card at draw pile
+    const tempCard = new CardRenderer(this, card, {
+      faceDown: !isHuman,
+      width: cardW,
+      height: cardH,
+    });
+    tempCard.container.setPosition(drawPile.x, drawPile.y);
+    tempCard.container.setDepth(200);
+
+    this.tweens.add({
+      targets: tempCard.container,
+      x: target.x,
+      y: target.y,
+      rotation: target.rotation,
+      duration: 300,
+      ease: 'Power2',
+      onComplete: () => {
+        tempCard.destroy();
+        onComplete();
+      },
+    });
+  }
+
+  /** Animate drawing multiple cards sequentially. */
+  private _animateDrawSequence(playerId: string, count: number, isHuman: boolean, onComplete: () => void): void {
+    if (count <= 0) { onComplete(); return; }
+    this._animateDrawCard(playerId, isHuman, () => {
+      this._animateDrawSequence(playerId, count - 1, isHuman, onComplete);
+    });
+  }
+
+  /** Get the position where the next card will be added to a player's hand. */
+  private _getHandEndPosition(playerId: string, W: number, H: number): { x: number; y: number; rotation: number } {
+    const s = cardSizes(H);
+    const slot = this.slots.find((sl) => sl.playerId === playerId);
+    if (!slot) return { x: W / 2, y: H / 2, rotation: 0 };
+
+    const player = this.state.players.find((p) => p.id === playerId);
+    const count = player?.hand.count ?? 1;
+    const pos = slot.position;
+
+    if (pos === 'bottom') {
+      const maxWidth = W * 0.75;
+      const maxStep = count > 1 ? (maxWidth - s.playerW) / (count - 1) : 0;
+      const step = Math.min(s.playerStep, maxStep);
+      const totalSpread = step * (count - 1);
+      const cx = W / 2;
+      const x = cx - totalSpread / 2 + (count - 1) * step;
+      const y = H - s.playerH / 2 + s.playerPeek;
+      return { x, y, rotation: 0 };
+    } else if (pos === 'left') {
+      const bounds = getSlotBounds(pos, W, H);
+      const maxStep = count > 1 ? (bounds.height - s.oppW) / (count - 1) : 0;
+      const step = Math.min(s.oppStep, maxStep);
+      const totalSpread = step * (count - 1);
+      const cy = H / 2;
+      const x = s.oppH / 2 - s.oppSidePeek;
+      const y = cy - totalSpread / 2 + (count - 1) * step;
+      return { x, y, rotation: Math.PI / 2 };
+    } else if (pos === 'right') {
+      const bounds = getSlotBounds(pos, W, H);
+      const maxStep = count > 1 ? (bounds.height - s.oppW) / (count - 1) : 0;
+      const step = Math.min(s.oppStep, maxStep);
+      const totalSpread = step * (count - 1);
+      const cy = H / 2;
+      const x = W - s.oppH / 2 + s.oppSidePeek;
+      const y = cy - totalSpread / 2 + (count - 1) * step;
+      return { x, y, rotation: -Math.PI / 2 };
     } else {
-      this.state = advanceTurn(this.state); this._startTurn();
+      // Top slots
+      const topSlots = this.slots.filter((sl) => sl.position.startsWith('top'));
+      const topIdx = topSlots.findIndex((sl) => sl.playerId === playerId);
+      const bounds = getSlotBounds(pos, W, H, topSlots.length, topIdx);
+      const maxStep = count > 1 ? (bounds.width - s.oppW) / (count - 1) : 0;
+      const step = Math.min(s.oppStep, maxStep);
+      const totalSpread = step * (count - 1);
+      const cx = bounds.x + bounds.width / 2;
+      const x = cx - totalSpread / 2 + (count - 1) * step;
+      const y = s.oppH / 2 - s.oppPeek;
+      return { x, y, rotation: Math.PI };
     }
   }
 
