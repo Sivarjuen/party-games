@@ -50,7 +50,9 @@ export class UnoGameScene extends Phaser.Scene {
   private humanPlayerId!: string;
 
   private handRenderers: Map<string, CardRenderer[]> = new Map();
-  private discardPileRenderer: CardRenderer | null = null;
+  private discardPileRenderers: CardRenderer[] = [];
+  /** Stored rotation/offset/wildColor for each card in the discard pile (persists across redraws). */
+  private discardPileTransforms: Array<{ rotation: number; offsetX: number; offsetY: number; wildColor: string | null }> = [];
   private _drawPileBack: CardRenderer | null = null;
   private drawPileHitArea: Phaser.GameObjects.Rectangle | null = null;
   private bg!: Phaser.GameObjects.Rectangle;
@@ -210,21 +212,55 @@ export class UnoGameScene extends Phaser.Scene {
   }
 
   private _renderDiscardTop(W: number, H: number): void {
-    this.discardPileRenderer?.destroy();
-    this.discardPileRenderer = null;
+    // Destroy existing pile renderers
+    this.discardPileRenderers.forEach((r) => r.destroy());
+    this.discardPileRenderers = [];
 
-    const topCard = this.state.discardPile[this.state.discardPile.length - 1];
-    if (!topCard) return;
+    const pile = this.state.discardPile;
+    if (pile.length === 0) return;
 
     const { playerW, playerH } = cardSizes(H);
     const { discardPile } = getCentralAreaPositions(W, H);
-    const r = new CardRenderer(this, topCard, unoCardOptions(topCard, {
-      width: playerW,
-      height: playerH,
-      chosenWildColor: this.state.chosenWildColor,
-    }));
-    r.container.setPosition(discardPile.x, discardPile.y).setDepth(7);
-    this.discardPileRenderer = r;
+
+    // Ensure we have transforms for all cards in the pile
+    // New cards get a random rotation assigned once and it stays forever
+    while (this.discardPileTransforms.length < pile.length) {
+      const isFirst = this.discardPileTransforms.length === 0;
+      this.discardPileTransforms.push({
+        rotation: isFirst ? 0 : (Math.random() - 0.5) * 0.3,
+        offsetX: isFirst ? 0 : (Math.random() - 0.5) * 8,
+        offsetY: isFirst ? 0 : (Math.random() - 0.5) * 8,
+        wildColor: null,
+      });
+    }
+
+    // Show last N cards
+    const VISIBLE_COUNT = 20;
+    const startIdx = Math.max(0, pile.length - VISIBLE_COUNT);
+
+    for (let i = startIdx; i < pile.length; i++) {
+      const card = pile[i];
+      const isTop = i === pile.length - 1;
+      const transform = this.discardPileTransforms[i];
+
+      // Use the stored wild color for this card (set when it was played)
+      // For the top card, also respect the current chosenWildColor (in case it just changed)
+      const wildColor = isTop ? (this.state.chosenWildColor ?? transform.wildColor) : transform.wildColor;
+
+      const r = new CardRenderer(this, card, unoCardOptions(card, {
+        width: playerW,
+        height: playerH,
+        chosenWildColor: wildColor,
+      }));
+
+      r.container.setPosition(
+        discardPile.x + transform.offsetX,
+        discardPile.y + transform.offsetY,
+      );
+      r.container.setRotation(transform.rotation);
+      r.container.setDepth(5 + (i - startIdx));
+      this.discardPileRenderers.push(r);
+    }
   }
 
   // ── Hand rendering ────────────────────────────────────────────────────────
@@ -416,11 +452,9 @@ export class UnoGameScene extends Phaser.Scene {
     const s = cardSizes(H);
     const target = this._getHandEndPosition(playerId, W, H);
 
-    const tempCard = new CardRenderer(this, { id: 'temp', color: null, type: 'number' }, {
-      faceDown: true,
-      width: s.oppW,
-      height: s.oppH,
-    });
+    const tempCard = new CardRenderer(this, { id: 'temp', color: null, type: 'number' },
+      unoBackOptions({ width: s.oppW, height: s.oppH }),
+    );
     tempCard.container.setPosition(drawPile.x, drawPile.y);
     tempCard.container.setDepth(200);
 
@@ -433,6 +467,11 @@ export class UnoGameScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => {
         tempCard.destroy();
+        // Re-render this player's hand so the new card appears immediately
+        const slot = this.slots.find((sl) => sl.playerId === playerId);
+        if (slot) {
+          this._renderHand(slot, W, H);
+        }
         this._animateDrawVisual(playerId, count - 1, onComplete);
       },
     });
@@ -497,12 +536,15 @@ export class UnoGameScene extends Phaser.Scene {
     tempCard.container.setRotation(startRotation);
     tempCard.container.setDepth(200);
 
+    // Pre-generate the pile transform so the card tweens to its final resting position
+    const pileTransform = this._preGeneratePileTransform(this.state.chosenWildColor);
+
     // Tween to discard pile
     this.tweens.add({
       targets: tempCard.container,
-      x: discardPile.x,
-      y: discardPile.y,
-      rotation: 0,
+      x: discardPile.x + pileTransform.offsetX,
+      y: discardPile.y + pileTransform.offsetY,
+      rotation: pileTransform.rotation,
       duration: 400,
       ease: 'Cubic.easeOut',
       onComplete: () => {
@@ -575,7 +617,6 @@ export class UnoGameScene extends Phaser.Scene {
   private _animatePlayerCard(card: Card): void {
     const W = this.scale.width;
     const H = this.scale.height;
-    const { discardPile } = getCentralAreaPositions(W, H);
     const s = cardSizes(H);
 
     // Find the renderer for this card
@@ -583,7 +624,6 @@ export class UnoGameScene extends Phaser.Scene {
     const cardRenderer = renderers.find((r) => r.card.id === card.id);
 
     if (!cardRenderer) {
-      // Fallback: no animation
       this._commitPlayCard(card);
       return;
     }
@@ -593,12 +633,16 @@ export class UnoGameScene extends Phaser.Scene {
     cardRenderer.container.disableInteractive();
     this.tweens.killTweensOf(cardRenderer.container);
 
+    // Pre-generate pile transform so card tweens to its final resting position
+    const pileTransform = this._preGeneratePileTransform(this.state.chosenWildColor);
+    const { discardPile: dp } = getCentralAreaPositions(W, H);
+
     // Tween card to discard pile position
     this.tweens.add({
       targets: cardRenderer.container,
-      x: discardPile.x,
-      y: discardPile.y,
-      rotation: 0,
+      x: dp.x + pileTransform.offsetX,
+      y: dp.y + pileTransform.offsetY,
+      rotation: pileTransform.rotation,
       scaleX: 1,
       scaleY: 1,
       duration: 400,
@@ -702,6 +746,11 @@ export class UnoGameScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => {
         tempCard.destroy();
+        // Re-render this player's hand immediately so the new card appears
+        const slot = this.slots.find((sl) => sl.playerId === playerId);
+        if (slot) {
+          this._renderHand(slot, this.scale.width, this.scale.height);
+        }
         onComplete();
       },
     });
@@ -713,6 +762,18 @@ export class UnoGameScene extends Phaser.Scene {
     this._animateDrawCard(playerId, isHuman, () => {
       this._animateDrawSequence(playerId, count - 1, isHuman, onComplete);
     });
+  }
+
+  /** Pre-generate and store the pile transform for the next card to be played. */
+  private _preGeneratePileTransform(wildColor?: string | null): { rotation: number; offsetX: number; offsetY: number; wildColor: string | null } {
+    const transform = {
+      rotation: (Math.random() - 0.5) * 0.3,
+      offsetX: (Math.random() - 0.5) * 8,
+      offsetY: (Math.random() - 0.5) * 8,
+      wildColor: wildColor ?? null,
+    };
+    this.discardPileTransforms.push(transform);
+    return transform;
   }
 
   /** Get the position where the next card will be added to a player's hand. */

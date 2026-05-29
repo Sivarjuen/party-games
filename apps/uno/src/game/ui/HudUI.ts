@@ -49,7 +49,7 @@ export class HudUI {
       .text(0, 0, 'UNO!', {
         fontFamily: 'Consolas, monospace',
         fontSize: '48px',
-        color: '#ff3333',
+        color: '#ffa600ff',
         fontStyle: 'bold',
       })
       .setOrigin(0.5, 0.5)
