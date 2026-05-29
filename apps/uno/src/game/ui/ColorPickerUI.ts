@@ -35,7 +35,7 @@ export class ColorPickerUI {
 
     const prompt = scene.add
       .text(cx, cy - BTN_H - 30, 'Choose a color', {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '32px',
         color: '#ffffff',
         fontStyle: 'bold',
@@ -54,7 +54,7 @@ export class ColorPickerUI {
 
       const label = scene.add
         .text(bx, by, c.label, {
-          fontFamily: 'Consolas, monospace',
+          fontFamily: 'Fredoka, sans-serif',
           fontSize: '22px',
           color: '#ffffff',
           fontStyle: 'bold',

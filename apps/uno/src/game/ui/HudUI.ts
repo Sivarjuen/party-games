@@ -34,7 +34,7 @@ export class HudUI {
     this.drawStackBg = scene.add.circle(0, 0, 28, 0xffffff).setVisible(false);
     this.drawStackText = scene.add
       .text(0, 0, '', {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '22px',
         color: '#000000',
         fontStyle: 'bold',
@@ -47,10 +47,12 @@ export class HudUI {
     // UNO! call text — shown briefly when a player reaches 1 card
     this.unoCallText = scene.add
       .text(0, 0, 'UNO!', {
-        fontFamily: 'Consolas, monospace',
-        fontSize: '48px',
-        color: '#ffa600ff',
+        fontFamily: 'Fredoka, sans-serif',
+        fontSize: '100px',
+        color: '#f02a2aff',
         fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 16
       })
       .setOrigin(0.5, 0.5)
       .setVisible(false)
@@ -64,7 +66,7 @@ export class HudUI {
     for (const slot of slots) {
       const label = this.scene.add
         .text(0, 0, slot.playerId, {
-          fontFamily: 'Consolas, monospace',
+          fontFamily: 'Fredoka, sans-serif',
           fontSize: '18px',
           color: '#cccccc',
         })
@@ -216,9 +218,8 @@ export class HudUI {
     // Position: same spot as draw stack, but shift up if draw stack is visible
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
-    const { drawPile: dp } = getCentralAreaPositions(W, H);
-    const offsetY = this.drawStackBg.visible ? -60 : 0;
-    this.unoCallText.setPosition(dp.x, dp.y + offsetY);
+    const { discardPile: dp } = getCentralAreaPositions(W, H);
+    this.unoCallText.setPosition(dp.x, dp.y);
 
     this.unoCallText.setVisible(true).setAlpha(1).setScale(0.5);
     this.unoCallTween = this.scene.tweens.add({
@@ -228,7 +229,7 @@ export class HudUI {
       ease: 'Back.easeOut',
       yoyo: false,
       onComplete: () => {
-        this.scene.time.delayedCall(1200, () => {
+        this.scene.time.delayedCall(800, () => {
           this.scene.tweens.add({
             targets: this.unoCallText,
             alpha: 0,

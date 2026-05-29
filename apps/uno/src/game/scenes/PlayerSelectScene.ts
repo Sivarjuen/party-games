@@ -25,7 +25,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     // "Select number of players" text near bottom
     this.add
       .text(W / 2, H * 0.75, 'Select number of players', {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '28px',
         color: '#ffffff',
       })
@@ -48,7 +48,7 @@ export class PlayerSelectScene extends Phaser.Scene {
 
       this.add
         .text(bx, btnY, String(n), {
-          fontFamily: 'Consolas, monospace',
+          fontFamily: 'Fredoka, sans-serif',
           fontSize: '32px',
           color: '#ffffff',
           fontStyle: 'bold',

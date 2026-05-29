@@ -135,7 +135,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug reset
       this.resetBg = this.add.rectangle(0, 0, 140, 40, 0x333333).setDepth(999).setInteractive({ useHandCursor: true });
       this.resetLabel = this.add.text(0, 0, '↺ Reset', {
-        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
       }).setOrigin(0.5, 0.5).setDepth(1000);
       this.resetBg.on('pointerover', () => this.resetBg.setFillStyle(0x555555));
       this.resetBg.on('pointerout',  () => this.resetBg.setFillStyle(0x333333));
@@ -144,7 +144,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug +1 card to all players
       const addBg = this.add.rectangle(0, 0, 60, 40, 0x336633).setDepth(999).setInteractive({ useHandCursor: true });
       const addLabel = this.add.text(0, 0, '+1', {
-        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
       }).setOrigin(0.5, 0.5).setDepth(1000);
       addBg.on('pointerover', () => addBg.setFillStyle(0x448844));
       addBg.on('pointerout',  () => addBg.setFillStyle(0x336633));
@@ -163,7 +163,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug -1 card from all players
       const remBg = this.add.rectangle(0, 0, 60, 40, 0x663333).setDepth(999).setInteractive({ useHandCursor: true });
       const remLabel = this.add.text(0, 0, '-1', {
-        fontFamily: 'Consolas, monospace', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
       }).setOrigin(0.5, 0.5).setDepth(1000);
       remBg.on('pointerover', () => remBg.setFillStyle(0x884444));
       remBg.on('pointerout',  () => remBg.setFillStyle(0x663333));
@@ -255,8 +255,12 @@ export class UnoGameScene extends Phaser.Scene {
     const { playerW, playerH } = cardSizes(H);
     const { discardPile } = getCentralAreaPositions(W, H);
 
-    // Ensure we have transforms for all cards in the pile
-    // New cards get a random rotation assigned once and it stays forever
+    // Ensure transforms array matches pile length.
+    // After a reshuffle, the pile shrinks — trim transforms to match.
+    if (this.discardPileTransforms.length > pile.length) {
+      this.discardPileTransforms = this.discardPileTransforms.slice(0, pile.length);
+    }
+    // Fill any missing transforms (for initial cards or cards added without pre-generation)
     while (this.discardPileTransforms.length < pile.length) {
       const isFirst = this.discardPileTransforms.length === 0;
       this.discardPileTransforms.push({
@@ -290,6 +294,7 @@ export class UnoGameScene extends Phaser.Scene {
         discardPile.x + transform.offsetX,
         discardPile.y + transform.offsetY,
       );
+      // Top card renders straight — rotation only shows once buried under newer cards
       r.container.setRotation(transform.rotation);
       r.container.setDepth(5 + (i - startIdx));
       this.discardPileRenderers.push(r);
@@ -431,8 +436,17 @@ export class UnoGameScene extends Phaser.Scene {
     if (this.state.phase === 'game-over') return;
     this.hud.update(this.state, this.slots);
     const current = this.state.players[this.state.currentPlayerIndex];
-    if (current.type === 'human') this._enableHumanInput();
-    else { this._disableHumanInput(); this._runAiTurn(current.id); }
+    if (current.type === 'human') {
+      this._enableHumanInput();
+    } else {
+      this._disableHumanInput();
+      // Re-render player hand to reset card positions (remove legal card lift)
+      const playerSlot = this.slots.find((s) => s.playerId === this.humanPlayerId);
+      if (playerSlot) {
+        this._renderHand(playerSlot, this.scale.width, Math.max(600, this.scale.height));
+      }
+      this._runAiTurn(current.id);
+    }
   }
 
   private _runAiTurn(playerId: string): void {

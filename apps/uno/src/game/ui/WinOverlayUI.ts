@@ -21,7 +21,7 @@ export class WinOverlayUI {
 
     const title = scene.add
       .text(cx, cy - 70, '🎉 Game Over', {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '42px',
         color: '#ffdd00',
         fontStyle: 'bold',
@@ -30,7 +30,7 @@ export class WinOverlayUI {
 
     const winnerText = scene.add
       .text(cx, cy, `${winnerName} wins!`, {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '30px',
         color: '#ffffff',
       })
@@ -42,7 +42,7 @@ export class WinOverlayUI {
 
     const btnLabel = scene.add
       .text(cx, cy + 90, 'Play Again', {
-        fontFamily: 'Consolas, monospace',
+        fontFamily: 'Fredoka, sans-serif',
         fontSize: '24px',
         color: '#ffffff',
       })
