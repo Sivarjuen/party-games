@@ -374,6 +374,13 @@ export class UnoGameScene extends Phaser.Scene {
       const continueAfterAnim = () => {
         this._fullRedraw();
         this.processingTurn = false;
+
+        // Check if the AI that just played has 1 card remaining
+        const aiPlayer = this.state.players.find((p) => p.id === playerId);
+        if (aiPlayer && aiPlayer.hand.count === 1) {
+          this.hud.showUnoCall();
+        }
+
         if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
         const next = this.state.players[this.state.currentPlayerIndex];
         if (next.type === 'ai') this._runAiTurn(next.id); else this._startTurn();
@@ -617,6 +624,12 @@ export class UnoGameScene extends Phaser.Scene {
     };
     this.state = UnoRules.applyEffect(card, this.state);
     this.state = checkWin(this.state);
+
+    // Check if player just reached 1 card
+    if (player.hand.count === 1) {
+      this.hud.showUnoCall();
+    }
+
     this._fullRedraw();
     if (this.state.phase === 'game-over') { this._showWinOverlay(); return; }
     this.state = advanceTurn(this.state);
@@ -673,11 +686,10 @@ export class UnoGameScene extends Phaser.Scene {
     const cardH = isHuman ? s.playerH : s.oppH;
 
     // Create temp card at draw pile
-    const tempCard = new CardRenderer(this, card, {
-      faceDown: !isHuman,
-      width: cardW,
-      height: cardH,
-    });
+    const tempCardOpts = isHuman
+      ? unoCardOptions(card, { width: cardW, height: cardH })
+      : unoBackOptions({ width: cardW, height: cardH });
+    const tempCard = new CardRenderer(this, card, tempCardOpts);
     tempCard.container.setPosition(drawPile.x, drawPile.y);
     tempCard.container.setDepth(200);
 

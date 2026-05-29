@@ -14,6 +14,8 @@ export class HudUI {
 
   private drawStackBg: Phaser.GameObjects.Rectangle;
   private drawStackText: Phaser.GameObjects.Text;
+  private unoCallText: Phaser.GameObjects.Text;
+  private unoCallTween: Phaser.Tweens.Tween | null = null;
   private playerLabels: Map<string, Phaser.GameObjects.Text> = new Map();
   private slots: SlotConfig[] = [];
   private humanPlayerId: string = '';
@@ -41,6 +43,19 @@ export class HudUI {
       .setVisible(false);
 
     this.container.add([this.directionIcon, this.drawStackBg, this.drawStackText]);
+
+    // UNO! call text — shown briefly when a player reaches 1 card
+    this.unoCallText = scene.add
+      .text(0, 0, 'UNO!', {
+        fontFamily: 'Consolas, monospace',
+        fontSize: '48px',
+        color: '#ff3333',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5, 0.5)
+      .setVisible(false)
+      .setDepth(300);
+    this.container.add(this.unoCallText);
   }
 
   initPlayerLabels(slots: SlotConfig[], _W: number, _H: number, humanPlayerId?: string): void {
@@ -74,6 +89,7 @@ export class HudUI {
     const stackX = discardPile.x + playerCardH * (2 / 3) / 2 + 160;
     this.drawStackBg.setPosition(stackX, discardPile.y);
     this.drawStackText.setPosition(stackX, discardPile.y);
+    // unoCallText position is set dynamically in showUnoCall based on draw stack visibility
 
     const topSlots = this.slots.filter((s) => s.position.startsWith('top'));
 
@@ -133,6 +149,9 @@ export class HudUI {
       this.drawStackText.setVisible(false);
     }
 
+    // Check if any player just reached 1 card
+    // (called externally via showUnoCall when appropriate)
+
     // Highlight active label
     const currentPlayer = state.players[state.currentPlayerIndex];
     this.playerLabels.forEach((label, pid) => {
@@ -174,6 +193,44 @@ export class HudUI {
       duration: 4000,
       repeat: -1,
       ease: 'Linear',
+    });
+  }
+
+  /** Flash "UNO!" text when a player reaches 1 card. */
+  showUnoCall(): void {
+    if (this.unoCallTween) {
+      this.unoCallTween.destroy();
+      this.unoCallTween = null;
+    }
+
+    // Position: same spot as draw stack, but shift up if draw stack is visible
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    const { discardPile } = getCentralAreaPositions(W, H);
+    const playerCardH = H * 0.30;
+    const stackX = discardPile.x + playerCardH * (2 / 3) / 2 + 160;
+    const offsetY = this.drawStackBg.visible ? -60 : 0;
+    this.unoCallText.setPosition(stackX, discardPile.y + offsetY);
+
+    this.unoCallText.setVisible(true).setAlpha(1).setScale(0.5);
+    this.unoCallTween = this.scene.tweens.add({
+      targets: this.unoCallText,
+      scale: 1.2,
+      duration: 300,
+      ease: 'Back.easeOut',
+      yoyo: false,
+      onComplete: () => {
+        this.scene.time.delayedCall(1200, () => {
+          this.scene.tweens.add({
+            targets: this.unoCallText,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => {
+              this.unoCallText.setVisible(false);
+            },
+          });
+        });
+      },
     });
   }
 

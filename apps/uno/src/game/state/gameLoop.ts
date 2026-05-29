@@ -22,10 +22,18 @@ export function dealInitialHands(
 
   const deck = Deck.build(UNO_DECK_DEFINITION);
 
+  // Custom AI name pool — shuffled and picked from
+  const AI_NAMES = [
+    'Maya', 'Tiger', 'Leo', 'Max', 'Jack',
+  ];
+  const shuffledNames = [...AI_NAMES];
+  shuffleArray(shuffledNames);
+  let nameIdx = 0;
+
   // Build players with empty hands
   const players: UnoPlayer[] = Array.from({ length: playerCount }, (_, i) => ({
     id: `player-${i}`,
-    name: i === humanIndex ? 'You' : `CPU ${i}`,
+    name: i === humanIndex ? 'You' : shuffledNames[nameIdx++] ?? `CPU ${i}`,
     type: i === humanIndex ? 'human' : 'ai',
     hand: new Hand(),
   }));

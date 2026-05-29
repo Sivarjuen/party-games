@@ -103,11 +103,12 @@ export class CardRenderer {
 
     if (this._highlighted) {
       const outerBorder = Math.round(6 * scale);
-      const cornerRadius = Math.round(16 * scale);
+      const cornerRadius = Math.round(13 * scale);
+      const extraBottom = 6; // extend bottom to cover offset card
       this._borderGfx.fillStyle(HIGHLIGHT_BORDER, 1);
       this._borderGfx.fillRoundedRect(
         -w / 2 - outerBorder, -h / 2 - outerBorder,
-        w + outerBorder * 2, h + outerBorder * 2,
+        w + outerBorder * 2, h + outerBorder * 2 + extraBottom,
         cornerRadius,
       );
     }
