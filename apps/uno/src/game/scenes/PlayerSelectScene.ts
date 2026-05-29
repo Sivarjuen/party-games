@@ -1,14 +1,13 @@
 import Phaser from 'phaser';
 
-const W = 1920;
-const H = 1080;
-
 export class PlayerSelectScene extends Phaser.Scene {
   constructor() {
     super('PlayerSelectScene');
   }
 
   create(): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
     this.add.rectangle(W / 2, H / 2, W, H, 0x1a472a);
 
     this.add

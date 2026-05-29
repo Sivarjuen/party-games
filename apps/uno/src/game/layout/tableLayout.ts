@@ -17,22 +17,16 @@ export interface SlotConfig {
 
 /**
  * Slot assignments by player count (human always at 'bottom').
- * Opponents are distributed around the table.
+ * Opponents listed in clockwise order starting from the player's left.
  *
- * | Players | Non-human slots                              |
- * |---------|----------------------------------------------|
- * | 2       | top-center                                   |
- * | 3       | top-left, top-right                          |
- * | 4       | top-center, left, right                      |
- * | 5       | top-left, top-right, left, right             |
- * | 6       | top-left, top-center, top-right, left, right |
+ * Clockwise from bottom: left → top-left → top-center → top-right → right
  */
 const OPPONENT_SLOTS: Record<number, SlotPosition[]> = {
   2: ['top-center'],
-  3: ['top-left', 'top-right'],
-  4: ['top-center', 'left', 'right'],
-  5: ['top-left', 'top-right', 'left', 'right'],
-  6: ['top-left', 'top-center', 'top-right', 'left', 'right'],
+  3: ['left', 'top-center'],
+  4: ['left', 'top-center', 'right'],
+  5: ['left', 'top-left', 'top-right', 'right'],
+  6: ['left', 'top-left', 'top-center', 'top-right', 'right'],
 };
 
 /** Rotation of the hand fan per slot so cards face the center. */
@@ -45,10 +39,16 @@ const SLOT_ROTATION: Record<SlotPosition, number> = {
   'right': -Math.PI / 2,
 };
 
+/**
+ * Assigns table positions to players in play order (clockwise from human).
+ * `playerIds` must be in the actual turn order (index 0 goes first).
+ * `humanPlayerId` identifies which player sits at the bottom.
+ */
 export function getTableLayout(
-  playerCount: number,
-  humanIndex: number,
+  playerIds: string[],
+  humanPlayerId: string,
 ): SlotConfig[] {
+  const playerCount = playerIds.length;
   if (playerCount < 2 || playerCount > 6) {
     throw new Error(`Invalid player count: ${playerCount}`);
   }
@@ -56,22 +56,24 @@ export function getTableLayout(
   const opponentSlots = OPPONENT_SLOTS[playerCount];
   const slots: SlotConfig[] = [];
 
-  // Human is always at bottom (index 0 in the players array after randomisation,
-  // but we use humanIndex to find them)
+  // Find the human's position in the play order
+  const humanIdx = playerIds.indexOf(humanPlayerId);
+
+  // Human at bottom
   slots.push({
     position: 'bottom',
-    playerId: `player-${humanIndex}`,
+    playerId: humanPlayerId,
     handRotation: SLOT_ROTATION['bottom'],
   });
 
-  // Assign opponents to remaining slots
-  let opponentIdx = 0;
-  for (let i = 0; i < playerCount; i++) {
-    if (i === humanIndex) continue;
-    const pos = opponentSlots[opponentIdx++];
+  // Assign opponents in clockwise play order starting from the player after human
+  let opponentSlotIdx = 0;
+  for (let offset = 1; offset < playerCount; offset++) {
+    const idx = (humanIdx + offset) % playerCount;
+    const pos = opponentSlots[opponentSlotIdx++];
     slots.push({
       position: pos,
-      playerId: `player-${i}`,
+      playerId: playerIds[idx],
       handRotation: SLOT_ROTATION[pos],
     });
   }
@@ -79,56 +81,57 @@ export function getTableLayout(
   return slots;
 }
 
-const MARGIN = 0;
-const HAND_HEIGHT = 220;   // tall enough for 180px cards + arc dip
+const TOP_OFFSET = 30;
+const SIDE_OFFSET = 40;
+const BOT_OFFSET = 30;
+const HAND_HEIGHT = 220;
 const SIDE_HAND_WIDTH = 220;
+const TOP_GAP = 40; // minimum gap between top opponent sections
 
 export function getSlotBounds(
   slot: SlotPosition,
   canvasWidth: number,
   canvasHeight: number,
+  /** How many top slots are active (needed to divide space evenly). Default: 1 */
+  topSlotCount?: number,
+  /** Which top slot index this is (0-based left to right). Default: 0 */
+  topSlotIndex?: number,
 ): BoundingBox {
-  const cx = canvasWidth / 2;
-
   switch (slot) {
     case 'bottom':
       return {
-        x: MARGIN,
-        y: canvasHeight - HAND_HEIGHT - MARGIN,
-        width: canvasWidth - MARGIN * 2,
+        x: 0,
+        y: canvasHeight - HAND_HEIGHT + BOT_OFFSET,
+        width: canvasWidth,
         height: HAND_HEIGHT,
       };
     case 'top-center':
-      return {
-        x: cx - canvasWidth * 0.25,
-        y: MARGIN,
-        width: canvasWidth * 0.5,
-        height: HAND_HEIGHT,
-      };
     case 'top-left':
+    case 'top-right': {
+      // Divide the top edge into equal sections, pushed toward corners
+      const sideReserved = 40; // minimal margin from screen edge
+      const availableWidth = canvasWidth - sideReserved * 2;
+      const numTop = topSlotCount ?? 1;
+      const idx = topSlotIndex ?? 0;
+      const sectionWidth = (availableWidth - TOP_GAP * (numTop - 1)) / numTop;
+      const startX = sideReserved + idx * (sectionWidth + TOP_GAP);
       return {
-        x: SIDE_HAND_WIDTH + MARGIN * 2,
-        y: MARGIN,
-        width: canvasWidth * 0.22,
+        x: startX,
+        y: -TOP_OFFSET,
+        width: sectionWidth,
         height: HAND_HEIGHT,
       };
-    case 'top-right':
-      return {
-        x: canvasWidth - SIDE_HAND_WIDTH - MARGIN * 2 - canvasWidth * 0.22,
-        y: MARGIN,
-        width: canvasWidth * 0.22,
-        height: HAND_HEIGHT,
-      };
+    }
     case 'left':
       return {
-        x: MARGIN,
+        x: -SIDE_OFFSET,
         y: canvasHeight * 0.18,
         width: SIDE_HAND_WIDTH,
         height: canvasHeight * 0.64,
       };
     case 'right':
       return {
-        x: canvasWidth - MARGIN - SIDE_HAND_WIDTH,
+        x: canvasWidth + SIDE_OFFSET - SIDE_HAND_WIDTH,
         y: canvasHeight * 0.18,
         width: SIDE_HAND_WIDTH,
         height: canvasHeight * 0.64,
@@ -141,8 +144,8 @@ export function getCentralAreaPositions(
   canvasHeight: number,
 ): { drawPile: { x: number; y: number }; discardPile: { x: number; y: number } } {
   const cx = canvasWidth / 2;
-  const cy = canvasHeight / 2;
-  const gap = 140; // half-gap between draw and discard centres
+  const cy = canvasHeight * 0.5;  // shifted up from center
+  const gap = 260; // half-gap between draw and discard centres
   return {
     drawPile:    { x: cx - gap, y: cy },
     discardPile: { x: cx,       y: cy },

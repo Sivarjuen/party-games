@@ -97,16 +97,17 @@ export class UnoRules {
 
       case 'draw-two': {
         const newStack = state.activeDrawStack + 2;
-        return { ...state, activeDrawStack: newStack, skipNext: true };
+        // Don't set skipNext here — skip only happens when the stack is consumed
+        return { ...state, activeDrawStack: newStack };
       }
 
       case 'wild':
-        // chosenWildColor is set by the caller before applyEffect
         return { ...state };
 
       case 'wild-draw-four': {
         const newStack = state.activeDrawStack + 4;
-        return { ...state, activeDrawStack: newStack, skipNext: true };
+        // Don't set skipNext here — skip only happens when the stack is consumed
+        return { ...state, activeDrawStack: newStack };
       }
 
       default:

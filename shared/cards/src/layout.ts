@@ -32,7 +32,7 @@ export interface FanOptions {
 }
 
 const DEFAULT_ARC_ANGLE = Math.PI / 10;  // ~18° total
-const DEFAULT_CARD_WIDTH = 120;
+const DEFAULT_CARD_WIDTH = 240;
 const DEFAULT_OVERLAP_FACTOR = 0.38;     // step = cardWidth * this
 
 export function fanLayout(
@@ -65,7 +65,7 @@ export function fanLayout(
     const t = (2 * i) / (count - 1) - 1;
 
     const x = startX + i * step;
-    const y = cy;
+    const y = cy + Math.abs(t)**2 * 18;
     const rotation = t * halfArc;
 
     transforms.push({ x, y, rotation });

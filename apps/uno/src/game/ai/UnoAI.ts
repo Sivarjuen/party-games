@@ -153,7 +153,9 @@ export class UnoAI {
       s = reshuffleIfNeeded(s);
     }
 
-    s = { ...s, activeDrawStack: 0, skipNext: true };
+    // Clear the stack. The penalized player's turn is consumed by drawing —
+    // just advance normally (no extra skip).
+    s = { ...s, activeDrawStack: 0, skipNext: false };
     return advanceTurn(s);
   }
 }
