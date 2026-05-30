@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+const TEXT_RESOLUTION = window.devicePixelRatio || 1;
+
 export class PlayerSelectScene extends Phaser.Scene {
   constructor() {
     super('PlayerSelectScene');
@@ -28,6 +30,7 @@ export class PlayerSelectScene extends Phaser.Scene {
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '28px',
         color: '#ffffff',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5);
 
@@ -52,6 +55,7 @@ export class PlayerSelectScene extends Phaser.Scene {
           fontSize: '32px',
           color: '#ffffff',
           fontStyle: 'bold',
+          resolution: TEXT_RESOLUTION,
         })
         .setOrigin(0.5, 0.5);
 

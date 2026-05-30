@@ -6,9 +6,14 @@ const config: Types.Core.GameConfig = {
   type: AUTO,
   parent: 'game-container',
   backgroundColor: '#000000',
+  roundPixels: true,
   scale: {
     mode: Scale.RESIZE,
     autoCenter: Scale.CENTER_BOTH,
+  },
+  render: {
+    antialias: true,
+    pixelArt: false,
   },
   scene: [UnoGameScene, PlayerSelectScene],  // DEV: skip menu, load 6-player game directly
 };

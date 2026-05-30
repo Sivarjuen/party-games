@@ -13,6 +13,8 @@ import type { UnoGameState, UnoPlayer } from '../state/UnoGameState';
 import { unoCardOptions, unoBackOptions } from '../rendering/cardAssets';
 import { getDeviceContext } from '../layout/deviceContext';
 import type { LayoutMode, InputMode } from '../layout/deviceContext';
+
+const TEXT_RESOLUTION = window.devicePixelRatio || 1;
 import { DEBUG } from '../layout/deviceContext';
 
 const AI_DELAY_MS = 1200;
@@ -135,7 +137,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug reset
       this.resetBg = this.add.rectangle(0, 0, 140, 40, 0x333333).setDepth(999).setInteractive({ useHandCursor: true });
       this.resetLabel = this.add.text(0, 0, '↺ Reset', {
-        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff', resolution: TEXT_RESOLUTION,
       }).setOrigin(0.5, 0.5).setDepth(1000);
       this.resetBg.on('pointerover', () => this.resetBg.setFillStyle(0x555555));
       this.resetBg.on('pointerout',  () => this.resetBg.setFillStyle(0x333333));
@@ -144,7 +146,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug +1 card to all players
       const addBg = this.add.rectangle(0, 0, 60, 40, 0x336633).setDepth(999).setInteractive({ useHandCursor: true });
       const addLabel = this.add.text(0, 0, '+1', {
-        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff', resolution: TEXT_RESOLUTION,
       }).setOrigin(0.5, 0.5).setDepth(1000);
       addBg.on('pointerover', () => addBg.setFillStyle(0x448844));
       addBg.on('pointerout',  () => addBg.setFillStyle(0x336633));
@@ -163,7 +165,7 @@ export class UnoGameScene extends Phaser.Scene {
       // Debug -1 card from all players
       const remBg = this.add.rectangle(0, 0, 60, 40, 0x663333).setDepth(999).setInteractive({ useHandCursor: true });
       const remLabel = this.add.text(0, 0, '-1', {
-        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff',
+        fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: '#ffffff', resolution: TEXT_RESOLUTION,
       }).setOrigin(0.5, 0.5).setDepth(1000);
       remBg.on('pointerover', () => remBg.setFillStyle(0x884444));
       remBg.on('pointerout',  () => remBg.setFillStyle(0x663333));

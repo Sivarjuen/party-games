@@ -3,6 +3,8 @@ import type { UnoGameState } from '../state/UnoGameState';
 import type { SlotConfig } from '../layout/tableLayout';
 import { getSlotBounds, getCentralAreaPositions } from '../layout/tableLayout';
 
+const TEXT_RESOLUTION = window.devicePixelRatio || 1;
+
 export class HudUI {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
@@ -38,6 +40,7 @@ export class HudUI {
         fontSize: '22px',
         color: '#000000',
         fontStyle: 'bold',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -52,7 +55,8 @@ export class HudUI {
         color: '#f02a2aff',
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 16
+        strokeThickness: 16,
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5)
       .setVisible(false)
@@ -69,6 +73,7 @@ export class HudUI {
           fontFamily: 'Fredoka, sans-serif',
           fontSize: '18px',
           color: '#cccccc',
+          resolution: TEXT_RESOLUTION,
         })
         .setOrigin(0.5, 0)
         .setDepth(1);

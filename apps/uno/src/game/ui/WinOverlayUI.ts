@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+const TEXT_RESOLUTION = window.devicePixelRatio || 1;
+
 export class WinOverlayUI {
   private container: Phaser.GameObjects.Container;
 
@@ -25,6 +27,7 @@ export class WinOverlayUI {
         fontSize: '42px',
         color: '#ffdd00',
         fontStyle: 'bold',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5);
 
@@ -33,6 +36,7 @@ export class WinOverlayUI {
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '30px',
         color: '#ffffff',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5);
 
@@ -45,6 +49,7 @@ export class WinOverlayUI {
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '24px',
         color: '#ffffff',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 0.5);
 

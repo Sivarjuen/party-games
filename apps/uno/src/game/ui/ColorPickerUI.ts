@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+const TEXT_RESOLUTION = window.devicePixelRatio || 1;
+
 const COLORS: Array<{ name: string; hex: number; label: string }> = [
   { name: 'red',    hex: 0xe74c3c, label: 'Red'    },
   { name: 'blue',   hex: 0x3498db, label: 'Blue'   },
@@ -39,6 +41,7 @@ export class ColorPickerUI {
         fontSize: '32px',
         color: '#ffffff',
         fontStyle: 'bold',
+        resolution: TEXT_RESOLUTION,
       })
       .setOrigin(0.5, 1);
 
@@ -58,6 +61,7 @@ export class ColorPickerUI {
           fontSize: '22px',
           color: '#ffffff',
           fontStyle: 'bold',
+          resolution: TEXT_RESOLUTION,
         })
         .setOrigin(0.5, 0.5);
 
