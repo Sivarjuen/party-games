@@ -31,8 +31,9 @@ export class WinOverlayUI {
       })
       .setOrigin(0.5, 0.5);
 
+    const winMessage = winnerName === 'You' ? 'You win!' : `${winnerName} wins!`;
     const winnerText = scene.add
-      .text(cx, cy, `${winnerName} wins!`, {
+      .text(cx, cy, winMessage, {
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '30px',
         color: '#ffffff',

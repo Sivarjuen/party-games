@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { UnoGameState } from '../state/UnoGameState';
-import type { SlotConfig } from '../layout/tableLayout';
-import { getSlotBounds, getCentralAreaPositions } from '../layout/tableLayout';
+import type { SlotConfig, TableLayoutProvider } from '../layout/tableLayout';
+import { getSlotBounds, getCentralAreaPositions, getLayoutProvider } from '../layout/tableLayout';
+import { getLayoutMode } from '../layout/deviceContext';
 
 const TEXT_RESOLUTION = window.devicePixelRatio || 1;
 
@@ -87,15 +88,28 @@ export class HudUI {
   }
 
   reposition(W: number, H: number): void {
-    // Direction icon — bottom left
-    this.directionIcon.setPosition(44, H - 44);
+    const layoutMode = getLayoutMode(W, H);
+    const provider = getLayoutProvider(W, H);
 
-    // Draw stack counter — on top of the draw pile
+    // Direction icon
+    if (layoutMode === 'portrait') {
+      this.directionIcon.setPosition(44, 44);
+    } else {
+      this.directionIcon.setPosition(44, H - 44);
+    }
+
+    if (layoutMode === 'portrait') {
+      this._repositionPortrait(W, H, provider);
+    } else {
+      this._repositionLandscape(W, H);
+    }
+  }
+
+  private _repositionLandscape(W: number, H: number): void {
     const { drawPile, discardPile } = getCentralAreaPositions(W, H);
     const playerCardH = H * 0.30;
     this.drawStackBg.setPosition(drawPile.x, drawPile.y);
     this.drawStackText.setPosition(drawPile.x, drawPile.y);
-    // unoCallText position is set dynamically in showUnoCall based on draw stack visibility
 
     const topSlots = this.slots.filter((s) => s.position.startsWith('top'));
 
@@ -122,15 +136,13 @@ export class HudUI {
       } else if (slot.position.startsWith('top')) {
         labelY = H * 0.14;
       } else if (slot.position === 'left') {
-        // Position label to the right of the cards (toward center)
         const oppH = H * 0.15;
         const oppSidePeek = oppH * 0.20;
-        const cardX = oppH / 2 - oppSidePeek; // where card centers are
-        labelX = cardX + oppH * 0.7 + 20; // clear of the card width
+        const cardX = oppH / 2 - oppSidePeek;
+        labelX = cardX + oppH * 0.7 + 20;
         labelY = H / 2;
         labelRotation = Math.PI / 2;
       } else {
-        // Right side — label to the left of the cards (toward center)
         const oppH = H * 0.15;
         const oppSidePeek = oppH * 0.20;
         const cardX = W - oppH / 2 + oppSidePeek;
@@ -140,6 +152,55 @@ export class HudUI {
       }
       label.setPosition(labelX, labelY);
       label.setRotation(labelRotation);
+    }
+  }
+
+  private _repositionPortrait(W: number, H: number, provider: TableLayoutProvider): void {
+    const central = provider.getCentralArea(W, H);
+    const discardPile = central.discardPile;
+
+    // Draw stack counter — position on the draw pile in portrait
+    const drawPilePos = central.drawPile;
+    if (drawPilePos) {
+      this.drawStackBg.setPosition(drawPilePos.x, drawPilePos.y);
+      this.drawStackText.setPosition(drawPilePos.x, drawPilePos.y);
+    } else {
+      this.drawStackBg.setPosition(discardPile.x, discardPile.y - H * 0.12);
+      this.drawStackText.setPosition(discardPile.x, discardPile.y - H * 0.12);
+    }
+
+    for (const slot of this.slots) {
+      const label = this.playerLabels.get(slot.playerId);
+      if (!label) continue;
+
+      const bounds = provider.getSlotBounds(slot.position, W, H);
+      let labelX: number;
+      let labelY: number;
+      let labelRotation = 0;
+
+      if (slot.position === 'bottom') {
+        // Human label — below the top opponent name
+        labelX = discardPile.x;
+        labelY = H * 0.16;
+      } else if (slot.position === 'top') {
+        // Top opponent — label just below cards
+        labelX = bounds.x + bounds.width / 2;
+        labelY = bounds.y + bounds.height - H * 0.02;
+      } else if (slot.position.startsWith('left')) {
+        // Left side — label to the right of the cards, rotated vertical
+        labelX = bounds.x + bounds.width + 4;
+        labelY = bounds.y + bounds.height / 2;
+        labelRotation = -Math.PI / 2;
+      } else {
+        // Right side — label to the left of the cards, rotated vertical
+        labelX = bounds.x - 4;
+        labelY = bounds.y + bounds.height / 2;
+        labelRotation = Math.PI / 2;
+      }
+
+      label.setPosition(labelX, labelY);
+      label.setRotation(labelRotation);
+      label.setOrigin(0.5, 0.5);
     }
   }
 

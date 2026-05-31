@@ -15,7 +15,7 @@ const config: Types.Core.GameConfig = {
     antialias: true,
     pixelArt: false,
   },
-  scene: [UnoGameScene, PlayerSelectScene],  // DEV: skip menu, load 6-player game directly
+  scene: [UnoGameScene, PlayerSelectScene],
 };
 
 const StartGame = (parent: string): Game => {

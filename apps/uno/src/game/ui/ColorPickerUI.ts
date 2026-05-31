@@ -9,11 +9,6 @@ const COLORS: Array<{ name: string; hex: number; label: string }> = [
   { name: 'yellow', hex: 0xf1c40f, label: 'Yellow' },
 ];
 
-const BTN_W = 160;
-const BTN_H = 100;
-const GAP = 20;
-const TOTAL_W = COLORS.length * BTN_W + (COLORS.length - 1) * GAP;
-
 export class ColorPickerUI {
   private container: Phaser.GameObjects.Container;
   private onChosen: (color: string) => void;
@@ -28,6 +23,7 @@ export class ColorPickerUI {
 
     const cx = canvasWidth / 2;
     const cy = canvasHeight / 2;
+    const isPortrait = canvasHeight / canvasWidth >= 1.2;
 
     // Semi-transparent backdrop
     const backdrop = scene.add
@@ -35,45 +31,98 @@ export class ColorPickerUI {
       .setOrigin(0, 0)
       .setInteractive(); // blocks clicks through
 
-    const prompt = scene.add
-      .text(cx, cy - BTN_H - 30, 'Choose a color', {
-        fontFamily: 'Fredoka, sans-serif',
-        fontSize: '32px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-        resolution: TEXT_RESOLUTION,
-      })
-      .setOrigin(0.5, 1);
-
     const buttons: Phaser.GameObjects.GameObject[] = [];
 
-    COLORS.forEach((c, i) => {
-      const bx = cx - TOTAL_W / 2 + i * (BTN_W + GAP) + BTN_W / 2;
-      const by = cy;
+    if (isPortrait) {
+      // Portrait: 2×2 grid
+      const btnW = canvasWidth * 0.35;
+      const btnH = canvasHeight * 0.08;
+      const gapX = 20;
+      const gapY = 20;
 
-      const bg = scene.add
-        .rectangle(bx, by, BTN_W, BTN_H, c.hex)
-        .setInteractive({ useHandCursor: true });
-
-      const label = scene.add
-        .text(bx, by, c.label, {
+      const prompt = scene.add
+        .text(cx, cy - btnH - gapY - 20, 'Choose a color', {
           fontFamily: 'Fredoka, sans-serif',
-          fontSize: '22px',
+          fontSize: '28px',
           color: '#ffffff',
           fontStyle: 'bold',
           resolution: TEXT_RESOLUTION,
         })
-        .setOrigin(0.5, 0.5);
+        .setOrigin(0.5, 1);
+      buttons.push(prompt);
 
-      bg.on('pointerover', () => bg.setScale(1.08));
-      bg.on('pointerout', () => bg.setScale(1));
-      bg.on('pointerdown', () => this._pick(c.name));
+      COLORS.forEach((c, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const bx = cx + (col === 0 ? -(btnW / 2 + gapX / 2) : (btnW / 2 + gapX / 2));
+        const by = cy + row * (btnH + gapY);
 
-      buttons.push(bg, label);
-    });
+        const bg = scene.add
+          .rectangle(bx, by, btnW, btnH, c.hex)
+          .setInteractive({ useHandCursor: true });
+
+        const label = scene.add
+          .text(bx, by, c.label, {
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: '20px',
+            color: '#ffffff',
+            fontStyle: 'bold',
+            resolution: TEXT_RESOLUTION,
+          })
+          .setOrigin(0.5, 0.5);
+
+        bg.on('pointerover', () => bg.setScale(1.05));
+        bg.on('pointerout', () => bg.setScale(1));
+        bg.on('pointerdown', () => this._pick(c.name));
+
+        buttons.push(bg, label);
+      });
+    } else {
+      // Landscape: horizontal row
+      const btnW = 160;
+      const btnH = 100;
+      const gap = 20;
+      const totalW = COLORS.length * btnW + (COLORS.length - 1) * gap;
+
+      const prompt = scene.add
+        .text(cx, cy - btnH - 30, 'Choose a color', {
+          fontFamily: 'Fredoka, sans-serif',
+          fontSize: '32px',
+          color: '#ffffff',
+          fontStyle: 'bold',
+          resolution: TEXT_RESOLUTION,
+        })
+        .setOrigin(0.5, 1);
+      buttons.push(prompt);
+
+      COLORS.forEach((c, i) => {
+        const bx = cx - totalW / 2 + i * (btnW + gap) + btnW / 2;
+        const by = cy;
+
+        const bg = scene.add
+          .rectangle(bx, by, btnW, btnH, c.hex)
+          .setInteractive({ useHandCursor: true });
+
+        const label = scene.add
+          .text(bx, by, c.label, {
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: '22px',
+            color: '#ffffff',
+            fontStyle: 'bold',
+            resolution: TEXT_RESOLUTION,
+          })
+          .setOrigin(0.5, 0.5);
+
+        bg.on('pointerover', () => bg.setScale(1.08));
+        bg.on('pointerout', () => bg.setScale(1));
+        bg.on('pointerdown', () => this._pick(c.name));
+
+        buttons.push(bg, label);
+      });
+    }
 
     this.container = scene.add
-      .container(0, 0, [backdrop, prompt, ...buttons])
+      .container(0, 0, [backdrop, ...buttons])
       .setDepth(100);
   }
 
