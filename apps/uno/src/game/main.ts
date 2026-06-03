@@ -15,7 +15,7 @@ const config: Types.Core.GameConfig = {
     antialias: true,
     pixelArt: false,
   },
-  scene: [UnoGameScene, PlayerSelectScene],
+  scene: [PlayerSelectScene, UnoGameScene],
 };
 
 const StartGame = (parent: string): Game => {

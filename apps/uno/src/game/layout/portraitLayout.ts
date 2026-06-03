@@ -51,7 +51,8 @@ const TOP_OFFSET = -20;
 const SIDE_SLOT_HEIGHT_FRAC = 0.15;
 
 /** Gap between stacked side slots. */
-const SIDE_GAP = 8;
+const _SIDE_GAP = 8;
+void _SIDE_GAP;
 
 export const portraitLayout: TableLayoutProvider = {
   getOpponentSlots(playerCount: number): SlotPosition[] {
