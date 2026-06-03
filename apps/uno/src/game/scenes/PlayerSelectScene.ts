@@ -8,7 +8,7 @@ export class PlayerSelectScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image('card-back', '/assets/backgrounds/back.png');
+    this.load.svg('card-back', '/assets/backgrounds/card-back.svg', { width: 750, height: 1050 });
   }
 
   create(): void {

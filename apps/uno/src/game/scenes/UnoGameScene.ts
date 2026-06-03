@@ -20,7 +20,7 @@ import { DEBUG } from '../layout/deviceContext';
 const AI_DELAY_MS = 1200;
 
 // ── Height-relative sizing constants ────────────────────────────────────────
-const CARD_RATIO      = 670 / 1043;
+const CARD_RATIO      = 750 / 1050;
 
 // Landscape sizing fractions
 const CARD_H_FRAC     = 0.30;
@@ -120,7 +120,7 @@ export class UnoGameScene extends Phaser.Scene {
     this.load.image('card-plus2', '/assets/cards/plus2.png');
     this.load.image('card-plus4', '/assets/cards/plus4.png');
     this.load.image('card-wild', '/assets/cards/wild.png');
-    this.load.image('card-back', '/assets/backgrounds/back.png');
+    this.load.svg('card-back', '/assets/backgrounds/card-back.svg', { width: 750, height: 1050 });
     this.load.image('turn-icon', '/assets/ui/turn_icon.png');
   }
 
