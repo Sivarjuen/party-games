@@ -50,6 +50,7 @@ export function unoCardOptions(
   return {
     assetKey: getCardAssetKey(card),
     backAssetKey: 'card-back',
+    backgroundAssetKey: 'card-background',
     fillColor: getCardFillColor(card, opts.chosenWildColor),
     faceDown: false,
     width: opts.width,

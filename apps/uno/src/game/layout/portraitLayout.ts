@@ -19,8 +19,8 @@ import type { SlotPosition, TableLayoutProvider, CentralArea } from './types';
 
 const OPPONENT_SLOTS: Record<number, SlotPosition[]> = {
   2: ['top'],
-  3: ['left-top', 'right-top'],
-  4: ['left-top', 'top', 'right-top'],
+  3: ['left-center', 'right-center'],
+  4: ['left-center', 'top', 'right-center'],
   5: ['left-bottom', 'left-top', 'right-top', 'right-bottom'],
   6: ['left-bottom', 'left-top', 'top', 'right-top', 'right-bottom'],
 };
@@ -31,8 +31,10 @@ const SLOT_ROTATION: Record<string, number> = {
   'bottom': 0,
   'top': Math.PI,
   'left-top': Math.PI / 2,
+  'left-center': Math.PI / 2,
   'left-bottom': Math.PI / 2,
   'right-top': -Math.PI / 2,
+  'right-center': -Math.PI / 2,
   'right-bottom': -Math.PI / 2,
 };
 
@@ -44,8 +46,11 @@ const HAND_ZONE_FRAC = 0.28;
 /** Fraction of screen width reserved for each side column. */
 const SIDE_ZONE_FRAC = 0.14;
 
+/** Wider side zone for center-positioned opponents (3-4 player). */
+const SIDE_CENTER_ZONE_FRAC = 0.20;
+
 /** Top slot peeks off the top edge by this many pixels. */
-const TOP_OFFSET = -20;
+const TOP_OFFSET = -60;
 
 /** Height of opponent card area on the sides. */
 const SIDE_SLOT_HEIGHT_FRAC = 0.15;
@@ -97,6 +102,18 @@ export const portraitLayout: TableLayoutProvider = {
           height: slotH,
         };
 
+      case 'left-center': {
+        const centerSideW = W * SIDE_CENTER_ZONE_FRAC;
+        const handZoneTop = H - H * HAND_ZONE_FRAC; // top edge of player hand
+        const centerY = handZoneTop / 2; // centered between screen top and hand top
+        return {
+          x: 0,
+          y: centerY - (slotH * 1.5) / 2,
+          width: centerSideW,
+          height: slotH * 1.5,
+        };
+      }
+
       case 'left-bottom':
         return {
           x: 0,
@@ -112,6 +129,18 @@ export const portraitLayout: TableLayoutProvider = {
           width: sideW,
           height: slotH,
         };
+
+      case 'right-center': {
+        const centerSideW = W * SIDE_CENTER_ZONE_FRAC;
+        const handZoneTop = H - H * HAND_ZONE_FRAC;
+        const centerY = handZoneTop / 2;
+        return {
+          x: W - centerSideW,
+          y: centerY - (slotH * 1.5) / 2,
+          width: centerSideW,
+          height: slotH * 1.5,
+        };
+      }
 
       case 'right-bottom':
         return {

@@ -8,7 +8,9 @@ export interface CardRenderOptions {
   assetKey?: string;
   /** Phaser texture key for the card back image. Required if faceDown. */
   backAssetKey?: string;
-  /** Fill color shown behind transparent areas of the card image. */
+  /** Phaser texture key for the card background image (tinted with fillColor). */
+  backgroundAssetKey?: string;
+  /** Fill color to tint the background image. */
   fillColor?: number;
   faceDown?: boolean;
   interactive?: boolean;
@@ -26,7 +28,7 @@ export class CardRenderer {
   private _w: number;
   private _h: number;
   private _borderGfx: Phaser.GameObjects.Graphics;
-  private _colorBg: Phaser.GameObjects.Graphics;
+  private _bgSprite: Phaser.GameObjects.Image | null = null;
   private _sprite: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, card: Card, options: CardRenderOptions = {}) {
@@ -44,26 +46,23 @@ export class CardRenderer {
     this._borderGfx = scene.add.graphics();
     this._container.add(this._borderGfx);
 
-    // Color background (shows through transparent areas of the card image)
-    this._colorBg = scene.add.graphics();
-    this._container.add(this._colorBg);
+    // Background sprite (tinted with fillColor, shows through transparent card art)
+    if (!this._faceDown && options.backgroundAssetKey && options.fillColor !== undefined) {
+      this._bgSprite = scene.add.image(0, 0, options.backgroundAssetKey);
+      const bgFitScale = Math.min(w / this._bgSprite.width, h / this._bgSprite.height);
+      this._bgSprite.setScale(bgFitScale);
+      this._bgSprite.setTint(options.fillColor);
+      this._container.add(this._bgSprite);
+    }
 
-    // Card image sprite — scale uniformly to fit within w×h (no distortion)
+    // Card image sprite — scale uniformly to fit within w×h
     const textureKey = this._faceDown
       ? (options.backAssetKey ?? 'card-back')
       : (options.assetKey ?? 'card-back');
     this._sprite = scene.add.image(0, 0, textureKey);
     const fitScale = Math.min(w / this._sprite.width, h / this._sprite.height);
-    this._sprite.setScale(fitScale * 2.2);
-    // this._sprite.setSize(1, 1);
+    this._sprite.setScale(fitScale);
     this._container.add(this._sprite);
-
-    // Draw color fill behind the image (for transparent card art)
-    // Offset down a few pixels to align with asset visual
-    if (!this._faceDown && options.fillColor !== undefined) {
-      this._colorBg.fillStyle(options.fillColor, 1);
-      this._colorBg.fillRect(-w / 2, -h / 2 + 3, w, h);
-    }
 
     if (options.interactive) {
       this._container.setSize(w, h);
@@ -102,13 +101,16 @@ export class CardRenderer {
     this._borderGfx.clear();
 
     if (this._highlighted) {
-      const outerBorder = Math.round(6 * scale);
-      const cornerRadius = Math.round(13 * scale);
-      const extraBottom = 6; // extend bottom to cover offset card
-      this._borderGfx.fillStyle(HIGHLIGHT_BORDER, 1);
-      this._borderGfx.fillRoundedRect(
-        -w / 2 - outerBorder, -h / 2 - outerBorder,
-        w + outerBorder * 2, h + outerBorder * 2 + extraBottom,
+      const borderWidth = Math.round(4 * scale);
+      const cornerRadius = Math.round(12 * scale);
+      // Inset the stroke slightly so it sits on top of the card edge (no gap)
+      const inset = 0;
+      const halfW = w / 2 - inset;
+      const halfH = h / 2 - borderWidth / 2;
+      this._borderGfx.lineStyle(borderWidth, HIGHLIGHT_BORDER, 1);
+      this._borderGfx.strokeRoundedRect(
+        -halfW, -halfH,
+        halfW * 2, halfH * 2,
         cornerRadius,
       );
     }

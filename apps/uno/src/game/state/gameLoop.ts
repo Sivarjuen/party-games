@@ -76,6 +76,12 @@ export function dealInitialHands(
 
   const discardPile: Card[] = firstDiscard ? [firstDiscard] : [];
 
+  // If the first discard is a wild card, randomly assign a color
+  const UNO_COLORS = ['red', 'blue', 'green', 'yellow'];
+  const chosenWildColor = (firstDiscard && firstDiscard.color === null)
+    ? UNO_COLORS[Math.floor(Math.random() * UNO_COLORS.length)]
+    : null;
+
   return {
     players,
     currentPlayerIndex: 0,
@@ -83,7 +89,7 @@ export function dealInitialHands(
     drawPile,
     discardPile,
     activeDrawStack: 0,
-    chosenWildColor: null,
+    chosenWildColor,
     phase: 'playing',
     winnerId: null,
     skipNext: false,

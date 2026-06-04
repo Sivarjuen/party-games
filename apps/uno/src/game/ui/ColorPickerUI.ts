@@ -126,7 +126,11 @@ export class ColorPickerUI {
       .setDepth(100);
   }
 
+  private _picked = false;
+
   private _pick(color: string): void {
+    if (this._picked) return; // prevent double-fire
+    this._picked = true;
     this.container.setVisible(false);
     this.container.destroy(true);
     this.onChosen(color);

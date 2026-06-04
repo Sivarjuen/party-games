@@ -94,7 +94,7 @@ export const landscapeLayout: TableLayoutProvider = {
     const cx = canvasWidth / 2;
     const cy = canvasHeight * 0.5;
     const cardW = canvasHeight * 0.30 * (670 / 1043);
-    const gap = cardW + 40;
+    const gap = cardW + 90;
     return {
       drawPile: { x: cx - gap, y: cy },
       discardPile: { x: cx, y: cy },

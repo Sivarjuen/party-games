@@ -16,8 +16,10 @@ export type PortraitSlotPosition =
   | 'bottom'
   | 'top'
   | 'left-top'
+  | 'left-center'
   | 'left-bottom'
   | 'right-top'
+  | 'right-center'
   | 'right-bottom';
 
 export type SlotPosition = LandscapeSlotPosition | PortraitSlotPosition;

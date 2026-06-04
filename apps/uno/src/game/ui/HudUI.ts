@@ -91,11 +91,32 @@ export class HudUI {
     const layoutMode = getLayoutMode(W, H);
     const provider = getLayoutProvider(W, H);
 
-    // Direction icon
+    // Scale factor relative to reference height (1080 CSS px equivalent)
+    const s = H / 1080;
+
+    // Direction icon — scale with screen
+    const iconSize = Math.round(48 * s);
+    this.directionIcon.setDisplaySize(iconSize, iconSize);
+
+    // Draw stack circle and text — scale with screen
+    this.drawStackBg.setRadius(Math.round(28 * s));
+    this.drawStackText.setFontSize(Math.round(22 * s));
+
+    // UNO call text
+    this.unoCallText.setFontSize(Math.round(100 * s));
+    this.unoCallText.setStroke('#000000', Math.round(16 * s));
+
+    // Player labels
+    this.playerLabels.forEach((label) => {
+      label.setFontSize(Math.round(18 * s));
+    });
+
+    // Direction icon position
+    const margin = Math.round(44 * s);
     if (layoutMode === 'portrait') {
-      this.directionIcon.setPosition(44, 44);
+      this.directionIcon.setPosition(margin, margin);
     } else {
-      this.directionIcon.setPosition(44, H - 44);
+      this.directionIcon.setPosition(margin, H - margin);
     }
 
     if (layoutMode === 'portrait') {
@@ -238,8 +259,9 @@ export class HudUI {
 
       if (isHuman) {
         if (isActive) {
+          const s = H / 1080;
           label.setText('YOUR TURN').setVisible(true);
-          label.setFontSize(28);
+          label.setFontSize(Math.round(28 * s));
           label.setColor('#ffdd00');
           label.setFontStyle('bold');
           label.setOrigin(0.5, 1);

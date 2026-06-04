@@ -31,7 +31,7 @@ const PEEK_FRAC       = 0.25;
 // Portrait sizing fractions
 const PORT_CARD_H_FRAC     = 0.22;
 const PORT_OPP_CARD_H_FRAC = 0.08;
-const PORT_OVERLAP_FRAC    = 0.45;
+const PORT_OVERLAP_FRAC    = 0.35;
 const PORT_DISCARD_H_FRAC  = 0.32;
 
 /** Compute card dimensions for landscape mode */
@@ -96,6 +96,7 @@ export class UnoGameScene extends Phaser.Scene {
   private _debugRem!: { bg: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text };
 
   private hud!: HudUI;
+  private _colorPicker: ColorPickerUI | null = null;
   private processingTurn = false;
 
   // Portrait hand scrub state
@@ -112,15 +113,18 @@ export class UnoGameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // Rasterize SVGs at 2x native size for crisp rendering on high-DPR screens
+    const svgOpts = { width: 1500, height: 2100 };
     for (let i = 0; i <= 9; i++) {
-      this.load.image(`card-${i}`, `/assets/cards/${i}.png`);
+      this.load.svg(`card-${i}`, `/assets/cards/card-${i}.svg`, svgOpts);
     }
-    this.load.image('card-skip', '/assets/cards/skip.png');
-    this.load.image('card-rev', '/assets/cards/rev.png');
-    this.load.image('card-plus2', '/assets/cards/plus2.png');
-    this.load.image('card-plus4', '/assets/cards/plus4.png');
-    this.load.image('card-wild', '/assets/cards/wild.png');
-    this.load.svg('card-back', '/assets/backgrounds/card-back.svg', { width: 750, height: 1050 });
+    this.load.svg('card-skip', '/assets/cards/card-skip.svg', svgOpts);
+    this.load.svg('card-rev', '/assets/cards/card-rev.svg', svgOpts);
+    this.load.svg('card-plus2', '/assets/cards/card-plus2.svg', svgOpts);
+    this.load.svg('card-plus4', '/assets/cards/card-plus4.svg', svgOpts);
+    this.load.svg('card-wild', '/assets/cards/card-wild.svg', svgOpts);
+    this.load.svg('card-background', '/assets/cards/card-background.svg', svgOpts);
+    this.load.svg('card-back', '/assets/backgrounds/card-back.svg', svgOpts);
     this.load.image('turn-icon', '/assets/ui/turn_icon.png');
   }
 
@@ -781,12 +785,27 @@ export class UnoGameScene extends Phaser.Scene {
       };
 
       if (playedCard) {
-        const playedSlot = this.slots.find((sl) => sl.playerId === playerId);
-        if (playedSlot) {
-          this._renderHand(playedSlot, this.scale.width, Math.max(600, this.scale.height));
+        // Check if the AI also drew a card before playing (drew then played)
+        if (cardsDrawn > 0) {
+          // Show draw animation first, then play animation
+          this._animateDrawVisual(playerId, cardsDrawn, () => {
+            // After draw animation, update hand then show play
+            const playedSlot = this.slots.find((sl) => sl.playerId === playerId);
+            if (playedSlot) {
+              this._renderHand(playedSlot, this.scale.width, Math.max(600, this.scale.height));
+            }
+            this.hud.update(this.state, this.slots);
+            this._animateOpponentCard(playerId, playedCard, continueAfterAnim);
+          });
+        } else {
+          // Played directly from hand (no draw)
+          const playedSlot = this.slots.find((sl) => sl.playerId === playerId);
+          if (playedSlot) {
+            this._renderHand(playedSlot, this.scale.width, Math.max(600, this.scale.height));
+          }
+          this.hud.update(this.state, this.slots);
+          this._animateOpponentCard(playerId, playedCard, continueAfterAnim);
         }
-        this.hud.update(this.state, this.slots);
-        this._animateOpponentCard(playerId, playedCard, continueAfterAnim);
       } else if (cardsDrawn > 0) {
         this._animateDrawVisual(playerId, cardsDrawn, continueAfterAnim);
       } else {
@@ -1084,7 +1103,9 @@ export class UnoGameScene extends Phaser.Scene {
     const H = this.scale.height;
     if (card.type === 'wild' || card.type === 'wild-draw-four') {
       this.state = { ...this.state, phase: 'color-pick' };
-      new ColorPickerUI(this, W, H, (color) => {
+      if (this._colorPicker) this._colorPicker.destroy();
+      this._colorPicker = new ColorPickerUI(this, W, H, (color) => {
+        this._colorPicker = null;
         this.state = { ...this.state, chosenWildColor: color, phase: 'playing' };
         this._animatePlayerCard(card);
       });

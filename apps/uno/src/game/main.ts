@@ -8,11 +8,11 @@ const config: Types.Core.GameConfig = {
   type: AUTO,
   parent: 'game-container',
   backgroundColor: '#000000',
-  // Set initial size to physical pixels
   width: Math.round(window.innerWidth * dpr),
   height: Math.round(window.innerHeight * dpr),
   scale: {
-    mode: Scale.NONE,  // We manage sizing manually
+    mode: Scale.FIT,
+    autoCenter: Scale.CENTER_BOTH,
   },
   render: {
     antialias: true,
@@ -24,22 +24,22 @@ const config: Types.Core.GameConfig = {
 const StartGame = (parent: string): Game => {
   const game = new Game({ ...config, parent });
 
-  // Scale the canvas element to fit the viewport via CSS
-  // while keeping the internal resolution at physical pixels
-  const applySize = () => {
-    const canvas = game.canvas;
-    if (!canvas) return;
+  // Resize internal resolution when window changes (debounced)
+  let lastW = window.innerWidth;
+  let lastH = window.innerHeight;
+  let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  window.addEventListener('resize', () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    // Internal buffer at full device resolution
-    game.scale.resize(Math.round(w * dpr), Math.round(h * dpr));
-  };
+    if (w === lastW && h === lastH) return;
+    lastW = w;
+    lastH = h;
 
-  game.events.once('ready', applySize);
-  window.addEventListener('resize', () => {
-    applySize();
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      game.scale.setGameSize(Math.round(w * dpr), Math.round(h * dpr));
+    }, 200);
   });
 
   return game;
