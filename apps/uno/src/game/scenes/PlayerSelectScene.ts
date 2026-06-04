@@ -30,7 +30,7 @@ export class PlayerSelectScene extends Phaser.Scene {
 
     // "Select number of players" text
     this.add
-      .text(W / 2, H * 0.68, 'Select number of players', {
+      .text(W / 2, H * 0.62, 'Select number of players', {
         fontFamily: 'Fredoka, sans-serif',
         fontSize: `${Math.round(baseFontSize)}px`,
         color: '#ffffff',
@@ -38,14 +38,14 @@ export class PlayerSelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0.5);
 
-    // Player count buttons — adapt to screen width
+    // Player count buttons — adapt to screen width, capped height
     const counts = [2, 3, 4, 5, 6];
-    const maxBtnArea = W * 0.85; // use 85% of screen width for buttons
+    const maxBtnArea = W * 0.85;
     const gap = Math.max(8, W * 0.02);
     const btnW = (maxBtnArea - gap * (counts.length - 1)) / counts.length;
-    const btnH = btnW * 0.7;
+    const btnH = Math.min(btnW * 0.7, H * 0.07); // cap at 7% of screen height
     const startX = W / 2 - maxBtnArea / 2 + btnW / 2;
-    const btnY = H * 0.80;
+    const btnY = H * 0.72;
 
     counts.forEach((n, i) => {
       const bx = startX + i * (btnW + gap);
