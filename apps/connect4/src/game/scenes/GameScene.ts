@@ -27,6 +27,7 @@ export class GameScene extends Scene {
   private aiName: string = '';
 
   private boardGraphics!: GameObjects.Graphics;
+  private boardImage: GameObjects.Image | null = null;
   private chipsGraphics!: GameObjects.Graphics;
   private previewGraphics!: GameObjects.Graphics;
   private headerText!: GameObjects.Text;
@@ -353,49 +354,49 @@ export class GameScene extends Scene {
     const bw = boardW + 16;
     const bh = boardH + 16;
 
-    // Create board texture with actual transparent holes using CanvasTexture
     const key = 'board_frame';
-    const W = this.scale.width;
-    const H = this.scale.height;
 
-    if (this.textures.exists(key)) {
-      this.textures.remove(key);
-    }
+    // Only create the texture once
+    if (!this.textures.exists(key)) {
+      const W = this.scale.width;
+      const H = this.scale.height;
 
-    const canvas = this.textures.createCanvas(key, W, H)!;
-    const ctx = canvas.context;
+      const canvas = this.textures.createCanvas(key, W, H)!;
+      const ctx = canvas.context;
 
-    // Draw rounded rect for board
-    ctx.fillStyle = `#${BOARD_COLOR.toString(16).padStart(6, '0')}`;
-    ctx.beginPath();
-    ctx.roundRect(bx, by, bw, bh, 12);
-    ctx.fill();
+      // Draw rounded rect for board
+      ctx.fillStyle = `#${BOARD_COLOR.toString(16).padStart(6, '0')}`;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 12);
+      ctx.fill();
 
-    // Draw border
-    ctx.strokeStyle = `#${BOARD_BORDER_COLOR.toString(16).padStart(6, '0')}`;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.roundRect(bx, by, bw, bh, 12);
-    ctx.stroke();
+      // Draw border
+      ctx.strokeStyle = `#${BOARD_BORDER_COLOR.toString(16).padStart(6, '0')}`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 12);
+      ctx.stroke();
 
-    // Cut out holes using destination-out composite
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'white';
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const x = this.boardOffsetX + col * CELL_SIZE + CELL_SIZE / 2;
-        const y = this.boardOffsetY + row * CELL_SIZE + CELL_SIZE / 2;
-        ctx.beginPath();
-        ctx.arc(x, y, CHIP_RADIUS, 0, Math.PI * 2);
-        ctx.fill();
+      // Cut out holes using destination-out composite
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'white';
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const x = this.boardOffsetX + col * CELL_SIZE + CELL_SIZE / 2;
+          const y = this.boardOffsetY + row * CELL_SIZE + CELL_SIZE / 2;
+          ctx.beginPath();
+          ctx.arc(x, y, CHIP_RADIUS, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
+      ctx.globalCompositeOperation = 'source-over';
+      canvas.refresh();
     }
-    ctx.globalCompositeOperation = 'source-over';
 
-    canvas.refresh();
-
-    // Display the board texture
-    this.add.image(0, 0, key).setOrigin(0, 0).setDepth(2);
+    // Create or reuse the board image
+    if (!this.boardImage) {
+      this.boardImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(2);
+    }
   }
 
   private drawChips(): void {
