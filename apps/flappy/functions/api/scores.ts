@@ -1,10 +1,33 @@
-import type { Env, SubmitBody } from './_shared';
-import { jsonResponse, errorResponse, corsPreflightResponse } from './_shared';
+interface Env {
+  DB: D1Database;
+}
+
+interface SubmitBody {
+  player_name: string;
+  score: number;
+}
 
 const MAX_NAME_LENGTH = 12;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  });
+}
+
+function errorResponse(message: string, status = 400): Response {
+  return jsonResponse({ error: message }, status);
+}
+
 export const onRequestOptions: PagesFunction<Env> = async () => {
-  return corsPreflightResponse();
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
