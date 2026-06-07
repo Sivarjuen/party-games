@@ -13,6 +13,12 @@ export default defineConfig({
         },
     },
     server: {
-        port: 8082
+        port: 8082,
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8788',
+                changeOrigin: true,
+            }
+        }
     }
 });

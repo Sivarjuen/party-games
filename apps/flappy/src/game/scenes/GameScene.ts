@@ -7,6 +7,9 @@ import { ParallaxBackground } from '../systems/ParallaxBackground';
 import { ScoreText } from '../ui/ScoreText';
 import { GameOverOverlay } from '../ui/GameOverOverlay';
 import { getMedalForScore } from '../ui/Medal';
+import { NameInputOverlay } from '../ui/NameInputOverlay';
+import { LeaderboardOverlay } from '../ui/LeaderboardOverlay';
+import { submitScore, fetchLeaderboard } from '../../api/scores';
 import {
   BIRD_START_X_RATIO,
   BIRD_START_Y_RATIO,
@@ -58,6 +61,10 @@ export class GameScene extends Scene {
   private pauseOverlay!: GameObjects.Container;
   private pauseTapped: boolean = false;
   private parallax!: ParallaxBackground;
+  private leaderboardButton!: GameObjects.Text;
+  private leaderboardBg!: GameObjects.Graphics;
+  private lastSubmittedId: number | null = null;
+  private nameInputActive: boolean = false;
 
   // Day/night cycle config (in raw score values)
   // Score 15-30: darken, 30-40: full night, 40-55: brighten, 55-65: full day, repeats every 50
@@ -127,20 +134,39 @@ export class GameScene extends Scene {
       resolution: 2,
     }).setOrigin(0.5, 0.5).setDepth(10);
 
-    // High score + medal on ready screen
-    this.highScoreDisplay = this.add.text(W / 2, H * 0.65, '', {
+    // High score in top-right corner on ready screen
+    this.highScoreDisplay = this.add.text(W - 12, 12, '', {
       fontFamily: 'Fredoka, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 2,
-      align: 'center',
       resolution: 2,
-    }).setOrigin(0.5, 0.5).setDepth(10);
+    }).setOrigin(1, 0).setDepth(10);
     this.updateHighScoreDisplay();
 
+    // Leaderboard button — trophy icon in top-left corner with circular background
+    const lbX = 36;
+    const lbY = 36;
+    const lbRadius = 24;
+    this.leaderboardBg = this.add.graphics();
+    this.leaderboardBg.fillStyle(0x1a1a3e, 1);
+    this.leaderboardBg.fillCircle(lbX, lbY, lbRadius);
+    this.leaderboardBg.lineStyle(2, 0x44ff88, 0.6);
+    this.leaderboardBg.strokeCircle(lbX, lbY, lbRadius);
+    this.leaderboardBg.setDepth(14);
+    this.leaderboardButton = this.add.text(lbX, lbY, '🏆', {
+      fontFamily: 'Fredoka, sans-serif',
+      fontSize: '26px',
+      resolution: 2,
+    }).setOrigin(0.5, 0.5).setDepth(15).setInteractive({ useHandCursor: true });
+    this.leaderboardButton.on('pointerdown', () => {
+      this.pauseTapped = true; // prevent handleInput from starting a game
+      this.showLeaderboard();
+    });
+
     // Ready text
-    this.readyText = this.add.text(W / 2, H * 0.40, 'Tap to start', {
+    this.readyText = this.add.text(W / 2, H * 0.70, 'Tap to start', {
       fontFamily: 'Fredoka, sans-serif',
       fontSize: '36px',
       color: '#ffffff',
@@ -275,6 +301,7 @@ export class GameScene extends Scene {
         // Only the resume button resumes, ignore other taps
         break;
       case GameState.GAME_OVER:
+        if (this.nameInputActive) break;
         if (this.bird.landed && this.bird.velocityY === 0 && this.gameOverOverlay) {
           this.restart();
         }
@@ -301,6 +328,8 @@ export class GameScene extends Scene {
     this.highScoreDisplay.setVisible(false);
     this.titleText.setVisible(false);
     this.bylineText.setVisible(false);
+    this.leaderboardButton.setVisible(false);
+    this.leaderboardBg.setVisible(false);
     this.pauseButton.setVisible(true);
     this.scoreText.setVisible(true);
     this.scoreText.setScore(0);
@@ -326,6 +355,38 @@ export class GameScene extends Scene {
       this.scoreSystem.score,
       this.scoreSystem.highScore
     );
+
+    // Show name input for online leaderboard submission
+    this.promptNameAndSubmit();
+  }
+
+  private async promptNameAndSubmit(): Promise<void> {
+    this.nameInputActive = true;
+    const nameOverlay = new NameInputOverlay(this.scoreSystem.score);
+    const name = await nameOverlay.show();
+    this.nameInputActive = false;
+
+    try {
+      const result = await submitScore(name, this.scoreSystem.score);
+      this.lastSubmittedId = result.id;
+    } catch (err) {
+      console.error('Failed to submit score:', err);
+    }
+  }
+
+  private async showLeaderboard(): Promise<void> {
+    const overlay = new LeaderboardOverlay();
+    try {
+      const data = await fetchLeaderboard(this.lastSubmittedId ?? undefined);
+      overlay.show(data, this.lastSubmittedId, () => {});
+    } catch {
+      // API unavailable — show empty leaderboard
+      overlay.show(
+        { daily: [], weekly: [], monthly: [], allTime: [] },
+        null,
+        () => {}
+      );
+    }
   }
 
   private updateHighScoreDisplay(): void {
@@ -335,8 +396,8 @@ export class GameScene extends Scene {
       return;
     }
     const medal = getMedalForScore(hs);
-    const medalStr = medal ? `${medal.name} ` : '';
-    this.highScoreDisplay.setText(`Highscore: ${hs}${medalStr}`);
+    const medalStr = medal ? ` ${medal.name}` : '';
+    this.highScoreDisplay.setText(`Best: ${hs}${medalStr}`);
   }
 
   private restart(): void {
@@ -358,6 +419,8 @@ export class GameScene extends Scene {
     this.highScoreDisplay.setVisible(true);
     this.titleText.setVisible(true);
     this.bylineText.setVisible(true);
+    this.leaderboardButton.setVisible(true);
+    this.leaderboardBg.setVisible(true);
     this.updateHighScoreDisplay();
     this.scoreText.setVisible(false);
     this.targetDarkness = 0;

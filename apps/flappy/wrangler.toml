@@ -1,0 +1,8 @@
+# Used for local D1 CLI commands (migrations, execute) and Pages dev
+name = "flappy"
+compatibility_date = "2024-06-20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flappy-scores"
+database_id = "656fead8-716f-40b2-a5a9-7bc753381600"
