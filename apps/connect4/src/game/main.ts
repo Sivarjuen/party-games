@@ -1,10 +1,11 @@
 import { AUTO, Game, Scale, Types } from 'phaser';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
-import { COLS, ROWS, CELL_SIZE, BOARD_PADDING, BG_COLOR } from './constants';
+import { BG_COLOR } from './constants';
 
-const GAME_WIDTH = COLS * CELL_SIZE + BOARD_PADDING * 2;
-const GAME_HEIGHT = (ROWS + 1) * CELL_SIZE + BOARD_PADDING * 2 + 80;
+const isLandscape = window.innerWidth > window.innerHeight;
+const GAME_WIDTH = isLandscape ? 1920 : 1080;
+const GAME_HEIGHT = isLandscape ? 1080 : 1920;
 
 const config: Types.Core.GameConfig = {
   type: AUTO,
@@ -15,6 +16,7 @@ const config: Types.Core.GameConfig = {
   scale: {
     mode: Scale.FIT,
     autoCenter: Scale.CENTER_BOTH,
+    autoRound: true,
   },
   render: {
     antialias: true,

@@ -1,6 +1,6 @@
 import { Scene, GameObjects } from 'phaser';
 import {
-  ROWS, COLS, CELL_SIZE, CHIP_RADIUS, BOARD_PADDING,
+  ROWS, COLS, CELL_SIZE, CHIP_RADIUS,
   BOARD_COLOR, BOARD_BORDER_COLOR,
   CHIP_RED, CHIP_YELLOW, Player,
 } from '../constants';
@@ -56,8 +56,13 @@ export class GameScene extends Scene {
   create(): void {
     const W = this.scale.width;
 
-    this.boardOffsetX = BOARD_PADDING;
-    this.boardOffsetY = BOARD_PADDING + 80 + CELL_SIZE;
+    this.boardImage = null;
+
+    this.boardOffsetX = (W - COLS * CELL_SIZE) / 2;
+    const H = this.scale.height;
+    const boardH = ROWS * CELL_SIZE;
+    // Center the board vertically with some space above for header and preview row
+    this.boardOffsetY = (H - boardH) / 2 + CELL_SIZE * 0.5;
 
     // Graphics layers
     // Chips render behind board
@@ -73,35 +78,35 @@ export class GameScene extends Scene {
     this.previewGraphics.setDepth(3);
 
     // Header
-    this.headerText = this.add.text(W / 2, 40, '', {
+    this.headerText = this.add.text(W / 2, 80, '', {
       fontFamily: 'Fredoka, sans-serif',
-      fontSize: '32px',
+      fontSize: '56px',
       color: '#ffffff',
       resolution: 2,
     }).setOrigin(0.5, 0.5);
 
     // Result text
-    this.resultText = this.add.text(W / 2, 40, '', {
+    this.resultText = this.add.text(W / 2, 80, '', {
       fontFamily: 'Fredoka, sans-serif',
-      fontSize: '36px',
+      fontSize: '64px',
       color: '#ffffff',
       resolution: 2,
     }).setOrigin(0.5, 0.5).setVisible(false);
 
     // Play again button (hidden until game ends)
-    const btnW = 160;
-    const btnH = 44;
+    const btnW = 320;
+    const btnH = 80;
     const btnX = W / 2;
     const btnY = this.boardOffsetY - CELL_SIZE / 2;
 
     this.playAgainBtn = this.add.graphics();
     this.playAgainBtn.fillStyle(0x2266cc, 1);
-    this.playAgainBtn.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+    this.playAgainBtn.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 12);
     this.playAgainBtn.setVisible(false).setDepth(5);
 
     this.playAgainText = this.add.text(btnX, btnY, 'Play Again', {
       fontFamily: 'Fredoka, sans-serif',
-      fontSize: '22px',
+      fontSize: '40px',
       color: '#ffffff',
       resolution: 2,
     }).setOrigin(0.5, 0.5).setVisible(false).setDepth(5);
@@ -116,8 +121,8 @@ export class GameScene extends Scene {
     this.playAgainZone.setActive(false);
 
     // Home button (top-left)
-    const homeBtn = this.add.text(30, 40, '🏠', {
-      fontSize: '28px',
+    const homeBtn = this.add.text(50, 80, '🏠', {
+      fontSize: '48px',
       resolution: 2,
     }).setOrigin(0.5, 0.5).setDepth(15).setAlpha(0.7).setInteractive({ useHandCursor: true });
     homeBtn.on('pointerup', () => {
@@ -355,46 +360,51 @@ export class GameScene extends Scene {
     const bh = boardH + 16;
 
     const key = 'board_frame';
+    const W = this.scale.width;
+    const H = this.scale.height;
 
-    // Only create the texture once
-    if (!this.textures.exists(key)) {
-      const W = this.scale.width;
-      const H = this.scale.height;
-
-      const canvas = this.textures.createCanvas(key, W, H)!;
-      const ctx = canvas.context;
-
-      // Draw rounded rect for board
-      ctx.fillStyle = `#${BOARD_COLOR.toString(16).padStart(6, '0')}`;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 12);
-      ctx.fill();
-
-      // Draw border
-      ctx.strokeStyle = `#${BOARD_BORDER_COLOR.toString(16).padStart(6, '0')}`;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 12);
-      ctx.stroke();
-
-      // Cut out holes using destination-out composite
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.fillStyle = 'white';
-      for (let row = 0; row < ROWS; row++) {
-        for (let col = 0; col < COLS; col++) {
-          const x = this.boardOffsetX + col * CELL_SIZE + CELL_SIZE / 2;
-          const y = this.boardOffsetY + row * CELL_SIZE + CELL_SIZE / 2;
-          ctx.beginPath();
-          ctx.arc(x, y, CHIP_RADIUS, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.globalCompositeOperation = 'source-over';
-      canvas.refresh();
+    // Create or reuse the canvas texture
+    let canvas: Phaser.Textures.CanvasTexture;
+    if (this.textures.exists(key)) {
+      canvas = this.textures.get(key) as Phaser.Textures.CanvasTexture;
+      canvas.clear();
+    } else {
+      canvas = this.textures.createCanvas(key, W, H)!;
     }
+    const ctx = canvas.context;
 
-    // Create or reuse the board image
-    if (!this.boardImage) {
+    // Draw rounded rect for board
+    ctx.fillStyle = `#${BOARD_COLOR.toString(16).padStart(6, '0')}`;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 12);
+    ctx.fill();
+
+    // Draw border
+    ctx.strokeStyle = `#${BOARD_BORDER_COLOR.toString(16).padStart(6, '0')}`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 12);
+    ctx.stroke();
+
+    // Cut out holes using destination-out composite
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'white';
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const x = this.boardOffsetX + col * CELL_SIZE + CELL_SIZE / 2;
+        const y = this.boardOffsetY + row * CELL_SIZE + CELL_SIZE / 2;
+        ctx.beginPath();
+        ctx.arc(x, y, CHIP_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    canvas.refresh();
+
+    // Create the board image
+    if (this.boardImage) {
+      this.boardImage.setTexture(key);
+    } else {
       this.boardImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(2);
     }
   }
