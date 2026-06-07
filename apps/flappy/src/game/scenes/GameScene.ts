@@ -64,6 +64,7 @@ export class GameScene extends Scene {
   private leaderboardButton!: GameObjects.Text;
   private leaderboardBg!: GameObjects.Graphics;
   private lastSubmittedId: number | null = null;
+  private lastPlayerName: string | null = null;
   private nameInputActive: boolean = false;
 
   // Day/night cycle config (in raw score values)
@@ -366,6 +367,7 @@ export class GameScene extends Scene {
     const name = await nameOverlay.show();
     this.nameInputActive = false;
 
+    this.lastPlayerName = name;
     try {
       const result = await submitScore(name, this.scoreSystem.score);
       this.lastSubmittedId = result.id;
@@ -376,9 +378,10 @@ export class GameScene extends Scene {
 
   private async showLeaderboard(): Promise<void> {
     const overlay = new LeaderboardOverlay();
+    const playerName = this.lastPlayerName ?? localStorage.getItem('flappy_player_name');
     try {
       const data = await fetchLeaderboard(this.lastSubmittedId ?? undefined);
-      overlay.show(data, this.lastSubmittedId, () => {});
+      overlay.show(data, playerName, () => {});
     } catch {
       // API unavailable — show empty leaderboard
       overlay.show(

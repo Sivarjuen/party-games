@@ -14,7 +14,7 @@ export class LeaderboardOverlay {
   private container: HTMLDivElement;
   private activePeriod: Period = 'daily';
   private data: LeaderboardResponse | null = null;
-  private playerId: number | null = null;
+  private playerName: string | null = null;
   private onCloseCallback: (() => void) | null = null;
 
   constructor() {
@@ -25,9 +25,9 @@ export class LeaderboardOverlay {
     this.container.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
-  show(data: LeaderboardResponse, playerId: number | null, onClose: () => void): void {
+  show(data: LeaderboardResponse, playerName: string | null, onClose: () => void): void {
     this.data = data;
-    this.playerId = playerId;
+    this.playerName = playerName;
     this.onCloseCallback = onClose;
     this.render();
     document.body.appendChild(this.container);
@@ -38,6 +38,7 @@ export class LeaderboardOverlay {
 
     const scores = this.data[this.activePeriod];
     const playerRank = this.data.playerRanks?.[this.activePeriod];
+    const playerInTop = this.playerName && scores.some(e => e.player_name === this.playerName);
 
     this.container.innerHTML = `
       <div class="leaderboard-card">
@@ -52,7 +53,7 @@ export class LeaderboardOverlay {
         <div class="lb-scores-list">
           ${scores.length === 0 ? '<p class="lb-empty">No scores yet. Be the first!</p>' : ''}
           ${scores.map((entry, i) => this.renderRow(entry, i + 1)).join('')}
-          ${playerRank ? this.renderPlayerRank(playerRank) : ''}
+          ${!playerInTop && playerRank ? this.renderPlayerRank(playerRank) : ''}
         </div>
         <button class="lb-back-btn" id="lb-back">Back</button>
       </div>
@@ -71,7 +72,7 @@ export class LeaderboardOverlay {
   }
 
   private renderRow(entry: ScoreEntry, rank: number): string {
-    const isPlayer = entry.id === this.playerId;
+    const isPlayer = entry.player_name === this.playerName;
     const medal = getMedalForScore(entry.score);
     const medalStr = medal ? ` ${medal.name}` : '';
     return `
