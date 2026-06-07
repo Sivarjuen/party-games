@@ -24,7 +24,7 @@ export function dealInitialHands(
 
   // Custom AI name pool — shuffled and picked from
   const AI_NAMES = [
-    'Maya', 'Tiger', 'Leo', 'Max', 'Jack',
+    'Maya (AI)', 'Tiger (AI)', 'Leo (AI)', 'Max (AI)', 'Jack (AI)',
   ];
   const shuffledNames = [...AI_NAMES];
   shuffleArray(shuffledNames);
