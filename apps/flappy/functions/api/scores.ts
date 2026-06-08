@@ -66,7 +66,47 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .run();
 
     const insertedId = result.meta?.last_row_id;
-    return jsonResponse({ success: true, id: insertedId }, 201);
+
+    // Clean up: keep only the player's best score per calendar day.
+    // Delete any lower scores from the same player on the same day.
+    await env.DB
+      .prepare(`
+        DELETE FROM scores WHERE player_name = ? AND id != ? 
+        AND DATE(created_at) = DATE('now')
+        AND score <= ?
+      `)
+      .bind(trimmedName, insertedId, score)
+      .run();
+
+    // If this score is lower than an existing one today, remove this one instead
+    await env.DB
+      .prepare(`
+        DELETE FROM scores WHERE player_name = ? AND id = ?
+        AND EXISTS (
+          SELECT 1 FROM scores WHERE player_name = ? AND id != ?
+          AND DATE(created_at) = DATE('now') AND score > ?
+        )
+      `)
+      .bind(trimmedName, insertedId, trimmedName, insertedId, score)
+      .run();
+
+    // Return the player's best score id for today
+    const best = await env.DB
+      .prepare(`SELECT id FROM scores WHERE player_name = ? AND DATE(created_at) = DATE('now') ORDER BY score DESC LIMIT 1`)
+      .bind(trimmedName)
+      .first<{ id: number }>();
+
+    // Prune old scores: remove entries older than 1 month except the player's all-time best
+    await env.DB
+      .prepare(`
+        DELETE FROM scores WHERE player_name = ? 
+        AND created_at < datetime('now', '-1 month')
+        AND id != (SELECT id FROM scores WHERE player_name = ? ORDER BY score DESC, created_at ASC LIMIT 1)
+      `)
+      .bind(trimmedName, trimmedName)
+      .run();
+
+    return jsonResponse({ success: true, id: best?.id ?? insertedId }, 201);
   } catch (err) {
     console.error('DB error:', err);
     return errorResponse('Internal server error', 500);
